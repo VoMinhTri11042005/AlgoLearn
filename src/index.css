@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+@keyframes hover-shake {
+  0%, 100% { transform: scale(1); }
+  20% { transform: translate(-2px, 1px) rotate(-1deg) scale(1.02); }
+  40% { transform: translate(1px, -1px) rotate(1deg) scale(1.02); }
+  60% { transform: translate(-1px, 1px) rotate(-0.5deg) scale(1.02); }
+  80% { transform: translate(1px, -1px) rotate(0.5deg) scale(1.02); }
+}
+
+.hover-shake:hover {
+  animation: hover-shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-4px); }
+  30%, 60%, 90% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.focus-mode-active #ide_screen_container,
+.focus-mode-active #arena_layout {
+  padding-top: 0 !important;
+}
+
+/* Sleek custom scrollbars for dark UI - extremely visible and responsive */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.7); /* Deep dark background track */
+  border-left: 1px solid rgba(30, 41, 59, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45); /* Bright Indigo tint */
+  border-radius: 9999px;
+  border: 2px solid rgba(15, 23, 42, 0.7);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.75); /* High contrast hover */
+  border: 2px solid rgba(15, 23, 42, 0.7);
+  background-clip: padding-box;
+}
+
+/* Custom scrollbar support for Firefox and standard specs */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.45) rgba(15, 23, 42, 0.7);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(8, 10, 15, 0.55);
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.75);
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) rgba(8, 10, 15, 0.55);
+}
+
+/* Custom styling for Prism tokens to match VS Code (Dark +) */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6a9955 !important; /* VS Code green for comments */
+  font-style: italic;
+}
+.token.punctuation {
+  color: #cccccc !important;
+}
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #b5cea8 !important; /* VS Code green-yellow for numbers */
+}
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #ce9178 !important; /* VS Code orange-brown for strings */
+}
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #d4d4d4 !important;
+}
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #569cd6 !important; /* VS Code brilliant blue for keywords */
+}
+.token.function,
+.token.class-name {
+  color: #dcdcaa !important; /* VS Code yellow for functions */
+}
+.token.regex,
+.token.important,
+.token.variable {
+  color: #9cdcfe !important; /* VS Code light blue for variables */
+}
+
+/* Adjust the overflow properties for #algolearn_root_wrapper and its direct child components */
+#algolearn_root_wrapper:not(.workspace-mode) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+#algolearn_root_wrapper:not(.workspace-mode) > * {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+/* On desktop, workspace mode locks height and disables outer scrollbars, letting sidebars/columns dock and scroll independently */
+@media (min-width: 1024px) {
+  #algolearn_root_wrapper.workspace-mode {
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+  #algolearn_root_wrapper.workspace-mode > .flex-1 {
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+}
+
+/* Subtle top-border shadow effect that appears inside #algolearn_root_wrapper when content is actively being scrolled */
+#algolearn_root_wrapper::after {
+  content: "";
+  position: fixed;
+  top: 64px; /* Just below the header (h-16 = 64px) for mobile */
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+  z-index: 39; /* Positioned right under the header (z-40) but above rest of page */
+  opacity: 0;
+  transition: opacity 0.25s ease-in-out;
+}
+
+@media (min-width: 1024px) {
+  #algolearn_root_wrapper::after {
+    top: 0; /* Just at the top of the container on desktop */
+    left: 256px; /* Offset by the sidebar width (w-64 = 256px) */
+  }
+}
+
+#algolearn_root_wrapper.scrolled::after {
+  opacity: 1;
+}
+
+/* Precise styles for the fixed-width desktop sidebar to ensure no layout-shifting or obscuring */
+#main_desktop_sidebar {
+  height: 100vh !important;
+  flex-shrink: 0 !important;
+}
+
+@media (min-width: 1024px) {
+  #main_desktop_sidebar {
+    width: 256px !important;
+    min-width: 256px !important;
+    max-width: 256px !important;
+    flex: 0 0 256px !important;
+    display: flex !important;
+    overflow-y: auto !important;
+  }
+}
+
+

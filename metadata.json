@@ -1,0 +1,6 @@
+{
+  "name": "AlgoLearn",
+  "description": "Nền tảng học thuật toán tương tác trực quan sinh động nhất dành cho Dev Việt",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
