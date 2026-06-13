@@ -365,7 +365,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
     : 11400;
 
   return (
-    <div id="admin_portal_layout" className="min-h-screen bg-slate-950 text-gray-200 pt-20 px-4 md:px-8 pb-12">
+    <div id="admin_portal_layout" className="min-h-[calc(100vh-4rem)] bg-slate-950 text-gray-200 pt-20 px-4 md:px-8 pb-36 sm:pb-48">
       
       {/* Toast Alert Banner */}
       <AnimatePresence>

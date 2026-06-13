@@ -43,13 +43,13 @@ interface DB {
 }
 
 const DEFAULT_SYLLABUS: Lesson[] = [
-  { id: '1', title: 'Bài 1: Tổng quan về Thuật toán & Big O', progress: 100, active: false },
-  { id: '2', title: 'Bài 2: Mảng & Danh sách liên kết', progress: 100, active: false },
-  { id: '3', title: 'Bài 3: Cấu trúc Đệ quy & Quy hoạch động', progress: 80, active: false },
-  { id: '4', title: 'Bài 4: Thuật toán Sắp xếp cơ bản', progress: 100, active: false },
-  { id: '5', title: 'Bài 5: Thuật toán Quick Sort', progress: 0, active: true },
-  { id: '6', title: 'Bài 6: Sắp xếp trộn Merge Sort', progress: 0, active: false },
-  { id: '7', title: 'Bài 7: Tìm kiếm theo Chiều rộng (BFS)', progress: 0, active: false },
+  { id: '1', title: 'Bài 1: Tổng quan về Thuật toán & Big O', progress: 100, active: false, difficulty: 'easy' },
+  { id: '2', title: 'Bài 2: Mảng & Danh sách liên kết', progress: 100, active: false, difficulty: 'easy' },
+  { id: '3', title: 'Bài 3: Cấu trúc Đệ quy & Quy hoạch động', progress: 80, active: false, difficulty: 'hard' },
+  { id: '4', title: 'Bài 4: Thuật toán Sắp xếp cơ bản', progress: 100, active: false, difficulty: 'easy' },
+  { id: '5', title: 'Bài 5: Thuật toán Quick Sort', progress: 0, active: true, difficulty: 'medium' },
+  { id: '6', title: 'Bài 6: Sắp xếp trộn Merge Sort', progress: 0, active: false, difficulty: 'medium' },
+  { id: '7', title: 'Bài 7: Tìm kiếm theo Chiều rộng (BFS)', progress: 0, active: false, difficulty: 'medium' },
 ];
 
 const INITIAL_USERS: DBUser[] = [
@@ -486,16 +486,29 @@ async function resetDBSyllabus(): Promise<Lesson[]> {
       await dbPool.query("DELETE FROM syllabus");
       for (const s of DEFAULT_SYLLABUS) {
         await dbPool.query(
-          "INSERT INTO syllabus (id, title, progress, active) VALUES ($1, $2, $3, $4)",
-          [s.id, s.title, s.progress, s.active]
+          "INSERT INTO syllabus (id, title, progress, active, difficulty, topic, markdown_content, code_snippet) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+          [
+            s.id, 
+            s.title, 
+            s.progress, 
+            s.active, 
+            s.difficulty || 'easy', 
+            s.topic || '', 
+            s.markdownContent || '', 
+            s.codeSnippet || ''
+          ]
         );
       }
-      const res = await dbPool.query("SELECT id, title, progress, active FROM syllabus ORDER BY id");
+      const res = await dbPool.query("SELECT id, title, progress, active, difficulty, topic, markdown_content, code_snippet FROM syllabus ORDER BY id");
       return res.rows.map(row => ({
         id: row.id,
         title: row.title,
         progress: row.progress,
-        active: row.active
+        active: row.active,
+        difficulty: row.difficulty,
+        topic: row.topic,
+        markdownContent: row.markdown_content,
+        codeSnippet: row.code_snippet
       }));
     } catch (e) {
       console.error("PG reset error, fallback to local:", e);

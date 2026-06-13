@@ -286,11 +286,11 @@ export default function App() {
       
       let currentStreak = parseInt(savedStreak, 10) || 1;
       
-      if (diffDays === 1) {
-        // Consecutive visit, keep the streak as is. It will increment when they actively practice.
+      if (diffDays <= 2) {
+        // Missed at most 1 day (diffDays is 1 or 2), keep the streak as user is still active!
         return currentStreak;
-      } else if (diffDays > 1) {
-        // Broke consecutive pattern, check if Streak Freeze is active
+      } else {
+        // 2 or more consecutive days missed, check if Streak Freeze is active
         const hasFreeze = localStorage.getItem('algolearn_streak_freeze_active') === 'true';
         if (hasFreeze) {
           localStorage.setItem('algolearn_streak_freeze_active', 'false');
@@ -298,9 +298,9 @@ export default function App() {
           localStorage.setItem('algolearn_last_practice_date', todayStr);
           return currentStreak;
         }
-        return 1;
+        localStorage.setItem('algolearn_streak_count', '0');
+        return 0;
       }
-      return currentStreak;
     } catch (e) {
       return 1;
     }
@@ -844,14 +844,22 @@ export default function App() {
         const diffTime = todayDate.getTime() - lastDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
-        if (diffDays === 1) {
-          currentStreak += 1;
-        } else if (diffDays > 1) {
+        if (diffDays === 1 || diffDays === 2) {
+          if (currentStreak === 0) {
+            currentStreak = 1;
+          } else {
+            currentStreak += 1;
+          }
+        } else if (diffDays > 2) {
           const hasFreeze = localStorage.getItem('algolearn_streak_freeze_active') === 'true';
           if (hasFreeze) {
             localStorage.setItem('algolearn_streak_freeze_active', 'false');
             setStreakFreezeActive(false);
-            currentStreak += 1;
+            if (currentStreak === 0) {
+              currentStreak = 1;
+            } else {
+              currentStreak += 1;
+            }
           } else {
             currentStreak = 1;
           }
@@ -3183,6 +3191,7 @@ export default function App() {
       <QuickNotesSidebar 
         isOpen={isQuickNotesOpen} 
         onClose={() => setIsQuickNotesOpen(false)} 
+        userRole={userRole}
       />
 
       {/* Floating Quick Notes Trigger Button */}

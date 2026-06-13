@@ -275,8 +275,8 @@ def quick_sort(arr, low, high):
   };
 
   return (
-    <div id="ide_screen_container" className="min-h-screen lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#0d0f14] text-gray-200 font-sans flex flex-col">
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden lg:h-full">
+    <div id="ide_screen_container" className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#0d0f14] text-gray-200 font-sans flex flex-col">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 pb-36 lg:pb-0 overflow-y-auto lg:overflow-hidden lg:h-full">
         
         {/* Leftmost Sidebar Selector - Project Files */}
         <aside id="file_explorer" className="lg:col-span-2 min-w-0 lg:h-full lg:overflow-y-auto border-r border-[#1a1f2c] bg-[#090b0e] p-4 flex flex-col text-left">
@@ -433,7 +433,7 @@ def quick_sort(arr, low, high):
             </button>
           </div>
 
-          <div className="flex-1 p-6 overflow-y-auto scrollbar-thin flex flex-col justify-between">
+          <div className="flex-1 p-6 pb-36 lg:pb-6 overflow-y-auto scrollbar-thin flex flex-col justify-between">
             {activeTab === 'viz' ? (
               // Visualizer Panel
               <div id="vis_panel" className="space-y-6 text-left flex-1 flex flex-col justify-between">
@@ -590,7 +590,7 @@ def quick_sort(arr, low, high):
 
                     {/* Labels on chart */}
                     <text x="260" y="35" fill="#ef4444" fontSize="8" fontWeight="bold">O(N²) - Worst-case</text>
-                    <text x="240" y="145" fill="#3b82f6" fontSize="8" fontWeight="bold">O(N log N) - Average</text>
+                    <text x="240" y="125" fill="#3b82f6" fontSize="8" fontWeight="bold">O(N log N) - Average</text>
                   </svg>
 
                   {/* Legends */}

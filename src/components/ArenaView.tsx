@@ -112,7 +112,7 @@ class Solution:
   };
 
   return (
-    <div id="arena_layout" className="min-h-screen lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#07090d] text-gray-200 font-sans flex flex-col">
+    <div id="arena_layout" className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#07090d] text-gray-200 font-sans flex flex-col">
       
       {/* Competitors Header */}
       <div className="bg-[#0b0e14] border-b border-slate-900 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -166,7 +166,7 @@ class Solution:
       </div>
 
       {/* Grid panels */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden lg:h-full">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 pb-36 lg:pb-0 overflow-y-auto lg:overflow-hidden lg:h-full">
         
         {/* Left column - Problem description */}
         <div className="lg:col-span-3 min-w-0 lg:h-full border-r border-slate-900/60 bg-[#06080b] p-6 text-left overflow-y-auto scrollbar-thin">

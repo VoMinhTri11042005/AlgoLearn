@@ -1107,7 +1107,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
 
   return (
     <div id="theory_layout" className="min-h-screen lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-slate-950 text-gray-200 font-sans flex flex-col">
-      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-visible lg:overflow-hidden">
         
         {/* Left Sidebar - Curriculum Trees */}
         <aside id="syllabus_sidebar" className="hidden lg:flex flex-col w-80 border-r border-slate-900 bg-slate-950/60 p-4 shrink-0 overflow-y-auto scrollbar-thin">
@@ -1338,7 +1338,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
         </aside>
 
         {/* Center - Content Panels */}
-        <main id="theory_main_panel" className="flex-1 flex flex-col bg-slate-950/20 p-4 md:p-6 overflow-y-auto scrollbar-thin">
+        <main id="theory_main_panel" className="flex-1 flex flex-col bg-slate-950/20 p-4 md:p-6 pb-36 md:pb-48 overflow-visible lg:overflow-y-auto scrollbar-thin">
           {/* Breadcrumb & Navigation */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-5 mb-6 text-left">
             <div>

@@ -9,6 +9,7 @@ import { QuickNote } from '../types';
 interface QuickNotesSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  userRole?: 'user' | 'admin';
 }
 
 const CATEGORIES = [
@@ -18,7 +19,7 @@ const CATEGORIES = [
   { value: 'snippet', label: 'Đoạn mã', color: 'bg-sky-500/15 text-sky-400 border-sky-500/25 hover:bg-sky-500/20' }
 ] as const;
 
-export default function QuickNotesSidebar({ isOpen, onClose }: QuickNotesSidebarProps) {
+export default function QuickNotesSidebar({ isOpen, onClose, userRole = 'user' }: QuickNotesSidebarProps) {
   const [notes, setNotes] = useState<QuickNote[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -37,50 +38,85 @@ export default function QuickNotesSidebar({ isOpen, onClose }: QuickNotesSidebar
   // Copy indicator state
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Initialize and load default notes if local storage is empty
+  // Storage key is based on the user's role: 'user' or 'admin'
+  const storageKey = userRole === 'admin' ? 'algolearn_quick_notes_admin' : 'algolearn_quick_notes_user';
+
+  // Initialize and load default notes whenever userRole changes
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('algolearn_quick_notes');
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         setNotes(JSON.parse(saved));
       } else {
-        const defaultNotes: QuickNote[] = [
-          {
-            id: 'default-1',
-            title: '💡 Hướng dẫn sử dụng Ghi Chú Nhanh',
-            content: 'Chào mừng bạn đến với sổ tay AlgoLearn! Tại đây, bạn có thể ghi chép nhanh các ý tưởng thuật toán, ghi chú Big O hoặc lưu các snippet cốt lõi ngay khi đang chạy IDE hay đấu trí 1v1.\n\n• Nhấp vào nút "Thêm ghi chú mới" bên dưới để bắt đầu.\n• Dùng thanh tìm kiếm và bộ lọc để chia phân loại ghi chú dễ dàng.\n• Nhấp chọn từng ghi chú để đọc chi tiết hoặc copy nhanh đoạn mã của nó.',
-            category: 'general',
-            updatedAt: new Date().toLocaleString('vi-VN')
-          },
-          {
-            id: 'default-2',
-            title: '⚡ Mã mẫu phân hoạch Lomuto (Quick Sort)',
-            content: 'Lomuto Partition chọn phần tử cuối làm Pivot, quét qua mảng từ trái sang phải, dồn các phần tử nhỏ hơn Pivot về đầu mảng.',
-            category: 'algorithm',
-            code: 'int partition(int arr[], int low, int high) {\n    int pivot = arr[high];\n    int i = (low - 1);\n    for (int j = low; j < high; j++) {\n        if (arr[j] < pivot) {\n            i++;\n            swap(&arr[i], &arr[j]);\n        }\n    }\n    swap(&arr[i + 1], &arr[high]);\n    return (i + 1);\n}',
-            updatedAt: new Date().toLocaleString('vi-VN')
-          },
-          {
-            id: 'default-3',
-            title: '📊 Bảng tra cứu độ phức tạp Big-O',
-            content: 'Ghi nhớ nhanh các mốc độ phức tạp phổ biến:\n• Binary Search: O(log n)\n• Quick Sort / Merge Sort: O(n log n)\n• Tìm cặp đôi trùng lặp (Nested Loops): O(n²)\n• Quy hoạch động (Knapsack): O(n*W)\n• Sinh nhị phân / hoán vị: O(2ⁿ)',
-            category: 'complexity',
-            updatedAt: new Date().toLocaleString('vi-VN')
-          }
-        ];
+        let defaultNotes: QuickNote[] = [];
+        if (userRole === 'admin') {
+          defaultNotes = [
+            {
+              id: 'admin-default-1',
+              title: '⚙️ Sổ Tay Quản Trị AlgoLearn (Admin Handbook)',
+              content: 'Chào mừng Admin/Giảng viên đến với Sổ Tay Quản Trị Hệ Thống! Tại đây, bạn có thể soạn sẵn các phím tắt quản lý, lưu trữ cấu hình testcase mẫu, ghi chú các quy chuẩn bài toán hoặc lưu tài liệu xử lý lỗi hệ thống.\n\n• Ghi chú tại đây được phân tách riêng biệt, chỉ tài khoản Admin mới truy cập được.\n• Lưu các snippet code kiểm thử tự động (Validator) để dán nhanh vào trình cấu hình đề bài.',
+              category: 'general',
+              updatedAt: new Date().toLocaleString('vi-VN')
+            },
+            {
+              id: 'admin-default-2',
+              title: '🧪 Đoạn mã chấm điểm mẫu (Custom Validator Boilerplate)',
+              content: 'Mẫu script Python dùng để so khớp chi tiết kết quả (Diff Checker) giữa file output của học viên và đáp án mẫu của hệ thống, giúp loại bỏ khoảng trắng dư thừa.',
+              category: 'snippet',
+              code: 'def validate_solution(user_out, correct_out):\n    # Chuẩn hóa khoảng trắng và lọc bỏ dòng trống\n    user_lines = [line.strip() for line in user_out.strip().split() if line.strip()]\n    correct_lines = [line.strip() for line in correct_out.strip().split() if line.strip()]\n    \n    if len(user_lines) != len(correct_lines):\n        return False\n        \n    return user_lines == correct_lines',
+              updatedAt: new Date().toLocaleString('vi-VN')
+            },
+            {
+              id: 'admin-default-3',
+              title: '📋 Quy chuẩn kiểm duyệt chất lượng bài toán (Review Checklist)',
+              content: 'Các bước kiểm duyệt chất lượng một bài tập trước khi xuất bản lên Đấu Trường (Arena):\n\n1. Kiểm tra đủ các testcase biên (Edge Cases): N=0, N=1, Số cực đại, Số âm.\n2. Thiết lập giới hạn tối ưu: Time Limit (mặc định 1.0s) & Memory Limit (mặc định 256MB).\n3. Viết thử tối thiểu 2 lời giải mẫu bằng Python & C++ để kiểm thử.\n4. Đảm bảo phần mô tả đề bài hiển thị rõ ràng thông tin Input/Output kèm ví dụ trực quan.',
+              category: 'complexity',
+              updatedAt: new Date().toLocaleString('vi-VN')
+            }
+          ];
+        } else {
+          defaultNotes = [
+            {
+              id: 'default-1',
+              title: '💡 Hướng dẫn sử dụng Sổ Tay Ghi Chú Nhanh',
+              content: 'Chào mừng bạn đến với sổ tay AlgoLearn! Tại đây, bạn có thể ghi chép nhanh các ý tưởng thuật toán, ghi chú Big O hoặc lưu các snippet cốt lõi ngay khi đang chạy IDE hay đấu trí 1v1.\n\n• Nhấp vào nút "Thêm ghi chú mới" bên dưới để bắt đầu.\n• Dùng thanh tìm kiếm và bộ lọc để chia phân loại ghi chú dễ dàng.\n• Nhấp chọn từng ghi chú để đọc chi tiết hoặc copy nhanh đoạn mã của nó.',
+              category: 'general',
+              updatedAt: new Date().toLocaleString('vi-VN')
+            },
+            {
+              id: 'default-2',
+              title: '⚡ Mã mẫu phân hoạch Lomuto (Quick Sort)',
+              content: 'Lomuto Partition chọn phần tử cuối làm Pivot, quét qua mảng từ trái sang phải, dồn các phần tử nhỏ hơn Pivot về đầu mảng.',
+              category: 'algorithm',
+              code: 'int partition(int arr[], int low, int high) {\n    int pivot = arr[high];\n    int i = (low - 1);\n    for (int j = low; j < high; j++) {\n        if (arr[j] < pivot) {\n            i++;\n            swap(&arr[i], &arr[j]);\n        }\n    }\n    swap(&arr[i + 1], &arr[high]);\n    return (i + 1);\n}',
+              updatedAt: new Date().toLocaleString('vi-VN')
+            },
+            {
+              id: 'default-3',
+              title: '📊 Bảng tra cứu độ phức tạp Big-O',
+              content: 'Ghi nhớ nhanh các mốc độ phức tạp phổ biến:\n• Binary Search: O(log n)\n• Quick Sort / Merge Sort: O(n log n)\n• Tìm cặp đôi trùng lặp (Nested Loops): O(n²)\n• Quy hoạch động (Knapsack): O(n*W)\n• Sinh nhị phân / hoán vị: O(2ⁿ)',
+              category: 'complexity',
+              updatedAt: new Date().toLocaleString('vi-VN')
+            }
+          ];
+        }
         setNotes(defaultNotes);
-        localStorage.setItem('algolearn_quick_notes', JSON.stringify(defaultNotes));
+        localStorage.setItem(storageKey, JSON.stringify(defaultNotes));
       }
+      // Reset views when switching roles
+      setActiveNote(null);
+      setIsEditing(false);
+      setIsCreating(false);
     } catch (e) {
       console.error('Failed to load quick notes from localStorage:', e);
     }
-  }, []);
+  }, [userRole, storageKey]);
 
   // Save notes helper
   const saveNotesToStorage = (updatedNotes: QuickNote[]) => {
     setNotes(updatedNotes);
     try {
-      localStorage.setItem('algolearn_quick_notes', JSON.stringify(updatedNotes));
+      localStorage.setItem(storageKey, JSON.stringify(updatedNotes));
     } catch (e) {
       console.error('Failed to save quick notes to localStorage:', e);
     }
@@ -212,6 +248,46 @@ export default function QuickNotesSidebar({ isOpen, onClose }: QuickNotesSidebar
     setIsEditing(false);
   };
 
+  // Admin template generator
+  const handleAddAdminTemplate = (type: 'checklist' | 'testcases' | 'problems_json') => {
+    const timestamp = new Date().toLocaleString('vi-VN');
+    let template: QuickNote;
+
+    if (type === 'checklist') {
+      template = {
+        id: `admin-note-${Date.now()}`,
+        title: '📋 Checklist Quy Trình Đăng Bài Tập',
+        content: 'Checklist quy trình chuẩn hóa và xuất bản bài tập thuật toán mới lên hệ thống:\n\n- [ ] Biên soạn mô tả chi tiết bằng tiếng Việt.\n- [ ] Thiết lập định dạng Input & Output chuẩn.\n- [ ] Phân bổ độ khó phù hợp (Dễ / Trung Bình / Khó).\n- [ ] Định nghĩa bộ testcase đa dạng (ít nhất 10 testcase).\n- [ ] Cấu hình đúng giới hạn thời gian (Time Limit) từ 1.0s - 2.0s.\n- [ ] Đăng tải giải thuật gợi ý bằng mã giả (Pseudo-code) kèm độ phức tạp Big-O.',
+        category: 'general',
+        updatedAt: timestamp
+      };
+    } else if (type === 'testcases') {
+      template = {
+        id: `admin-note-${Date.now()}-2`,
+        title: '🐍 Script Python sinh tự động Test Cases',
+        content: 'Dùng đoạn script sau trong terminal của bạn để sinh ra hàng loạt bộ dữ liệu ngẫu nhiên hỗ trợ việc import testcase vào hệ thống.',
+        code: 'import random\n\ndef generate_test():\n    n = random.randint(1, 1000)\n    elements = [random.randint(-10000, 10000) for _ in range(n)]\n    print(n)\n    print(" ".join(map(str, elements)))\n\n# Sinh 5 testcase\nfor i in range(5):\n    print(f"--- TESTCASE {i+1} ---")\n    generate_test()',
+        category: 'snippet',
+        updatedAt: timestamp
+      };
+    } else {
+      template = {
+        id: `admin-note-${Date.now()}-3`,
+        title: '⚡ Định Dạng JSON Của Hệ Thống Đề Bài',
+        content: 'Cấu trúc tiêu chuẩn của một đề bài được mã hóa trong cơ sở dữ liệu hệ thống học thuật toán AlgoLearn.',
+        code: '{\n  "id": "invert-binary-tree",\n  "title": "Invert a Binary Tree",\n  "difficulty": "Easy",\n  "timeLimit": 1.0,\n  "memoryLimit": 256,\n  "tags": ["tree", "dfs", "recursion"],\n  "xpReward": 250\n}',
+        category: 'snippet',
+        updatedAt: timestamp
+      };
+    }
+
+    const updated = [template, ...notes];
+    saveNotesToStorage(updated);
+    setActiveNote(template);
+    setIsCreating(false);
+    setIsEditing(false);
+  };
+
   // Filter notes
   const filteredNotes = notes.filter(n => {
     const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -248,8 +324,12 @@ export default function QuickNotesSidebar({ isOpen, onClose }: QuickNotesSidebar
                   <FileText className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white tracking-wider uppercase">Sổ Tay Ghi Chú Nhanh</h3>
-                  <p className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">AlgoLearn Notebook • Lưu trữ cục bộ</p>
+                  <h3 className="text-sm font-black text-white tracking-wider uppercase">
+                    {userRole === 'admin' ? 'Sổ Tay Quản Trị Hệ Thống' : 'Sổ Tay Ghi Chú Nhanh'}
+                  </h3>
+                  <p className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">
+                    {userRole === 'admin' ? 'Admin Notebook • Chỉ lưu thiết bị này' : 'AlgoLearn Notebook • Lưu trữ cục bộ'}
+                  </p>
                 </div>
               </div>
 
@@ -527,32 +607,66 @@ export default function QuickNotesSidebar({ isOpen, onClose }: QuickNotesSidebar
                         
                         {/* Auto templates helper when search returns empty or notes are deleted */}
                         <div className="pt-4 border-t border-slate-900/60 max-w-xs mx-auto space-y-1.5 bg-[#0b0e15] p-3 rounded-xl">
-                          <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">⚡ Sử dụng mẫu nhanh</p>
+                          <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
+                            <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
+                            <span>Sử dụng mẫu {userRole === 'admin' ? 'quản trị' : 'nhanh'}</span>
+                          </p>
                           <div className="flex flex-col space-y-1.5 text-left">
-                            <button 
-                              type="button" 
-                              onClick={() => handleAddTemplate('complexity')}
-                              className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between"
-                            >
-                              <span>📈 Meo Big-O & Tối ưu bài khó</span>
-                              <Plus className="w-3 h-3 text-indigo-400" />
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => handleAddTemplate('hashmap')}
-                              className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between"
-                            >
-                              <span>🔑 Kỹ thuật Unordered Map O(N)</span>
-                              <Plus className="w-3 h-3 text-pink-400" />
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => handleAddTemplate('recursion')}
-                              className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between"
-                            >
-                              <span>🎯 Tìm kiếm đệ quy Backtracking</span>
-                              <Plus className="w-3 h-3 text-amber-400" />
-                            </button>
+                            {userRole === 'admin' ? (
+                              <>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleAddAdminTemplate('checklist')}
+                                  className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between cursor-pointer text-gray-300 hover:text-white"
+                                >
+                                  <span>📋 Checklist Đăng Bài Tập</span>
+                                  <Plus className="w-3 h-3 text-indigo-400" />
+                                </button>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleAddAdminTemplate('testcases')}
+                                  className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between cursor-pointer text-gray-300 hover:text-white"
+                                >
+                                  <span>🧪 Snippet Sinh Test Cases</span>
+                                  <Plus className="w-3 h-3 text-emerald-400" />
+                                </button>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleAddAdminTemplate('problems_json')}
+                                  className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between cursor-pointer text-gray-300 hover:text-white"
+                                >
+                                  <span>⚡ Cấu Trúc Đề Bài (JSON)</span>
+                                  <Plus className="w-3 h-3 text-amber-400" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleAddTemplate('complexity')}
+                                  className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between cursor-pointer text-gray-300 hover:text-white"
+                                >
+                                  <span>📈 Mẹo Big-O & Tối ưu bài khó</span>
+                                  <Plus className="w-3 h-3 text-indigo-400" />
+                                </button>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleAddTemplate('hashmap')}
+                                  className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between cursor-pointer text-gray-300 hover:text-white"
+                                >
+                                  <span>🔑 Kỹ thuật Unordered Map O(N)</span>
+                                  <Plus className="w-3 h-3 text-pink-400" />
+                                </button>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleAddTemplate('recursion')}
+                                  className="text-[10px] bg-slate-900 border border-slate-800 hover:border-indigo-500/20 py-1.5 px-2 rounded font-bold transition flex items-center justify-between cursor-pointer text-gray-300 hover:text-white"
+                                >
+                                  <span>🎯 Tìm kiếm đệ quy Backtracking</span>
+                                  <Plus className="w-3 h-3 text-amber-400" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>

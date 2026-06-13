@@ -333,7 +333,7 @@ export default function HomeView({
 
 
   return (
-    <div id="home_container" className="text-gray-100 min-h-screen bg-slate-950 font-sans">
+    <div id="home_container" className="text-gray-100 min-h-[calc(100vh-4rem)] bg-slate-950 font-sans pb-36 sm:pb-48">
       {/* Hero Section */}
       <div className="relative overflow-hidden pt-12 pb-20 md:pb-28">
         <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">

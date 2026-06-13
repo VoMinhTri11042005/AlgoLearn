@@ -110,7 +110,7 @@ export default function LeaderboardView({
   const userRankIndex = selfEntry ? selfEntry.rank : 14;
 
   return (
-    <div id="leaderboard_container" className="min-h-screen bg-slate-950 text-gray-200 font-sans flex flex-col">
+    <div id="leaderboard_container" className="min-h-[calc(100vh-4rem)] bg-slate-950 text-gray-200 font-sans flex flex-col pb-36 sm:pb-48">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-10 w-full flex-1 flex flex-col space-y-10 text-left">
         
         {/* Leaderboard Header Section */}
