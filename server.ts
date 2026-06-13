@@ -545,6 +545,41 @@ async function getDBUsers(): Promise<DBUser[]> {
   return currentDb.users;
 }
 
+async function resetDBUsers(): Promise<DBUser[]> {
+  if (usePostgres && dbPool) {
+    try {
+      await dbPool.query("DELETE FROM users");
+      for (const u of INITIAL_USERS) {
+        await dbPool.query(
+          `INSERT INTO users (id, name, email, school, avatar, xp, solved, streak, created_at, is_admin, password)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [u.id, u.name, u.email, u.school, u.avatar, u.xp, u.solved, u.streak, u.createdAt, u.isAdmin, u.password]
+        );
+      }
+      const res = await dbPool.query("SELECT id, name, email, school, avatar, xp, solved, streak, created_at, is_admin, password FROM users");
+      return res.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        school: row.school,
+        avatar: row.avatar,
+        xp: row.xp,
+        solved: row.solved,
+        streak: row.streak,
+        createdAt: row.created_at,
+        isAdmin: row.is_admin,
+        password: row.password
+      }));
+    } catch (e) {
+      console.error("PG Reset users error, fallback to local:", e);
+    }
+  }
+  const currentDb = initDB();
+  currentDb.users = JSON.parse(JSON.stringify(INITIAL_USERS));
+  saveDB(currentDb);
+  return currentDb.users;
+}
+
 async function updateDBUserRole(userId: string, role: string): Promise<DBUser | null> {
   const isAdmin = role === 'admin';
   if (usePostgres && dbPool) {
@@ -789,6 +824,11 @@ async function startServer() {
     });
   });
 
+  // API Route - Health Check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "online" });
+  });
+
   // Hot configure connection string API
   app.post("/api/postgres/configure", async (req, res) => {
     const { url } = req.body;
@@ -834,7 +874,12 @@ async function startServer() {
   // API Route - Reset syllabus list (Admin only)
   app.post("/api/syllabus/reset", async (req, res) => {
     const updated = await resetDBSyllabus();
-    res.json({ message: "Syllabus reset to default!", syllabus: updated });
+    const users = await resetDBUsers();
+    const mappedUsers = users.map(({ password, ...u }) => ({
+      ...u,
+      role: u.isAdmin ? 'admin' : 'user'
+    }));
+    res.json({ status: "success", syllabus: updated, users: mappedUsers });
   });
 
   // API Route - Set active lesson
@@ -855,8 +900,11 @@ async function startServer() {
   // API Route - Users List (For admin dashboard or leaderboard compilation)
   app.get("/api/users", async (req, res) => {
     const users = await getDBUsers();
-    // Exclude password field for general inquiries
-    const usersWithoutPassword = users.map(({ password, ...u }) => u);
+    // Exclude password field for general inquiries, add role property
+    const usersWithoutPassword = users.map(({ password, ...u }) => ({
+      ...u,
+      role: u.isAdmin ? 'admin' : 'user'
+    }));
     res.json(usersWithoutPassword);
   });
 
@@ -865,7 +913,12 @@ async function startServer() {
     const { userId, role } = req.body;
     const updatedUser = await updateDBUserRole(userId, role);
     if (updatedUser) {
-      res.json({ message: "User role updated!", user: updatedUser });
+      const users = await getDBUsers();
+      const mappedUsers = users.map(({ password, ...u }) => ({
+        ...u,
+        role: u.isAdmin ? 'admin' : 'user'
+      }));
+      res.json({ status: "success", users: mappedUsers, user: { ...updatedUser, role: updatedUser.isAdmin ? 'admin' : 'user' } });
     } else {
       res.status(404).json({ error: "User not found" });
     }
