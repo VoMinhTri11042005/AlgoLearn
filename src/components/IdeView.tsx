@@ -276,10 +276,10 @@ def quick_sort(arr, low, high):
 
   return (
     <div id="ide_screen_container" className="min-h-screen lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#0d0f14] text-gray-200 font-sans flex flex-col">
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden scrollbar-thin">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden lg:h-full">
         
         {/* Leftmost Sidebar Selector - Project Files */}
-        <aside id="file_explorer" className="lg:col-span-2 border-r border-[#1a1f2c] bg-[#090b0e] p-4 flex flex-col text-left">
+        <aside id="file_explorer" className="lg:col-span-2 min-w-0 lg:h-full lg:overflow-y-auto border-r border-[#1a1f2c] bg-[#090b0e] p-4 flex flex-col text-left">
           <div className="flex items-center justify-between pb-3 border-b border-[#1a1f2c] mb-4">
             <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">WORKSPACE EXPLORER</span>
             <Settings className="w-4 h-4 text-slate-500 hover:text-white transition cursor-pointer" />
@@ -317,7 +317,7 @@ def quick_sort(arr, low, high):
         </aside>
 
         {/* Center - Smart Code Editor */}
-        <main id="editor_playground" className="lg:col-span-5 flex flex-col border-r border-[#1a1f2c] bg-[#0a0d13]">
+        <main id="editor_playground" className="lg:col-span-5 min-w-0 lg:h-full lg:overflow-hidden flex flex-col border-r border-[#1a1f2c] bg-[#0a0d13]">
           {/* Top Bar with action triggers */}
           <div className="flex items-center justify-between bg-[#080a0e] px-4 py-2.5 border-b border-[#1a1f2c]">
             <div className="flex items-center space-x-2">
@@ -405,7 +405,7 @@ def quick_sort(arr, low, high):
         </main>
 
         {/* Right - Simulation and complexity charts */}
-        <div className="lg:col-span-5 flex flex-col bg-[#090b0e]">
+        <div className="lg:col-span-5 min-w-0 lg:h-full lg:overflow-hidden flex flex-col bg-[#090b0e]">
           {/* Top Bar Navigation Tabs */}
           <div className="flex border-b border-[#1a1f2c] bg-[#080a0e] px-2 text-left">
             <button

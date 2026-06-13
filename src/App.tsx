@@ -1962,7 +1962,7 @@ export default function App() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-900 border border-slate-800/80 p-6 sm:p-8 rounded-2xl max-w-sm w-full shadow-2xl relative text-center"
+            className="bg-slate-900 border border-slate-800/80 p-6 sm:p-8 rounded-2xl max-w-sm w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin shadow-2xl relative text-center"
           >
             <button 
               onClick={() => setShowStreakDetails(false)}

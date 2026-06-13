@@ -221,7 +221,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.95, y: 15, opacity: 0 }}
         transition={{ type: 'spring', duration: 0.4 }}
-        className="w-full max-w-md bg-[#0b0f19] border border-slate-800/80 rounded-[28px] overflow-hidden relative shadow-2xl flex flex-col z-10"
+        className="w-full max-w-md bg-[#0b0f19] border border-slate-800/80 rounded-[28px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin relative shadow-2xl flex flex-col z-10"
       >
         {/* Glow ambient effects */}
         <div className="absolute -top-10 -left-10 w-40 h-40 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>

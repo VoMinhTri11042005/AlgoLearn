@@ -166,10 +166,10 @@ class Solution:
       </div>
 
       {/* Grid panels */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden lg:h-full">
         
         {/* Left column - Problem description */}
-        <div className="lg:col-span-3 border-r border-slate-900/60 bg-[#06080b] p-6 text-left overflow-y-auto scrollbar-thin">
+        <div className="lg:col-span-3 min-w-0 lg:h-full border-r border-slate-900/60 bg-[#06080b] p-6 text-left overflow-y-auto scrollbar-thin">
           <span className="text-[10px] font-extrabold tracking-widest text-indigo-400 block mb-1">MÔ TẢ BÀI TOÁN</span>
           <h2 className="text-xl font-bold text-white mb-4">Invert a Binary Tree</h2>
           
@@ -215,7 +215,7 @@ class Solution:
         </div>
 
         {/* Center column - Editor */}
-        <div className="lg:col-span-6 flex flex-col border-r border-[#1a1f2c] bg-[#090b0e]">
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-hidden flex flex-col border-r border-[#1a1f2c] bg-[#090b0e]">
           <div className="bg-[#05070a] px-4 py-2.5 border-b border-[#1a1f2c] flex items-center justify-between">
             <span className="text-xs font-mono text-gray-400">solution.py (Python 3)</span>
             <div className="flex items-center space-x-2">
@@ -273,7 +273,7 @@ class Solution:
         </div>
 
         {/* Right column - Rival progress & Powerups */}
-        <div className="lg:col-span-3 bg-[#06080b] p-6 text-left flex flex-col justify-between overflow-y-auto scrollbar-thin">
+        <div className="lg:col-span-3 min-w-0 lg:h-full bg-[#06080b] p-6 text-left flex flex-col justify-between overflow-y-auto scrollbar-thin">
           
           {/* Opponent live progress blur view */}
           <div className="space-y-4">

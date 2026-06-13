@@ -17,7 +17,7 @@ export default function ResultModal({ type, onClose, onNavigateHome, onNavigateT
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`max-w-xl w-full border rounded-2xl p-8 relative overflow-hidden text-left shadow-2xl ${
+        className={`max-w-xl w-full border rounded-2xl p-8 relative max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin text-left shadow-2xl ${
           isVictory 
             ? 'bg-gradient-to-b from-indigo-950/20 via-slate-900 to-slate-900 border-indigo-500/20 shadow-indigo-600/10' 
             : 'bg-[#0b141a] border-cyan-800/30'
