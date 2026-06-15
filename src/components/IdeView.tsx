@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Code, Terminal, Sparkles, RefreshCw, ChevronRight, CheckCircle2, 
-  Settings, Layers, BookOpen, AlertCircle, Cpu, FileJson, Clock, BarChart4
+  Settings, Layers, BookOpen, AlertCircle, Cpu, FileJson, Clock, BarChart4,
+  Volume2, VolumeX
 } from 'lucide-react';
 import { CodeFile, TestcaseResult, AlgorithmicStep } from '../types';
+import { playAudioCue, getSoundEnabled, setSoundEnabled as saveSoundOnStorage } from '../utils/audio';
 
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -138,82 +140,132 @@ def quick_sort(arr, low, high):
     setFiles(prev => prev.map(f => f.name === activeFile ? { ...f, content: val } : f));
   };
 
-  // 100% simulated step-by-step partition trace for array: 24, 9, 15, 31, 8, 12, 19
-  const visualSteps: AlgorithmicStep[] = [
-    {
-      array: [24, 9, 15, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: -1 },
-      description: "🚀 Bắt đầu bước phân hoạch Lomuto. Pivot được chọn là số 19 ở cuối mảng (index 6). Thiết lập chỉ số i = -1."
-    },
-    {
-      array: [24, 9, 15, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 0 },
-      description: "🔍 Chạy j = 0: So sánh A[j=0] = 24. Vì 24 > pivot (19), không hoán đổi. Con trỏ i đứng im."
-    },
-    {
-      array: [24, 9, 15, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 1 },
-      description: "🔍 Chạy j = 1: So sánh A[j=1] = 9. Có 9 <= pivot (19). Tăng i lên 0, hoán đổi A[i=0] (24) với A[j=1] (9)."
-    },
-    {
-      array: [9, 24, 15, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 1, swapping: [0, 1] },
-      description: "🔄 Thao tác hoán đổi: Đưa số 9 về khu vực bên trái và dồn số lớn hơn 24 dịch sang phải."
-    },
-    {
-      array: [9, 24, 15, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 2 },
-      description: "🔍 Chạy j = 2: So sánh A[j=2] = 15. Có 15 <= pivot (19). Tăng i lên 1, hoán đổi A[i=1] (24) với A[j=2] (15)."
-    },
-    {
-      array: [9, 15, 24, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 2, swapping: [1, 2] },
-      description: "🔄 Thao tác hoán đổi: Số 15 chuyển lên vị trí index 1 chính xác."
-    },
-    {
-      array: [9, 15, 24, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 3 },
-      description: "🔍 Chạy j = 3: So sánh A[j=3] = 31. Vì 31 > 19, không đổi chỗ. Chỉ số i giữ nguyên ở vị trí 1."
-    },
-    {
-      array: [9, 15, 24, 31, 8, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 4 },
-      description: "🔍 Chạy j = 4: So sánh A[j=4] = 8. Có 8 <= pivot (19). Tăng i lên 2, hoán đổi A[i=2] (24) với A[j=4] (8)."
-    },
-    {
-      array: [9, 15, 8, 31, 24, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 4, swapping: [2, 4] },
-      description: "🔄 Thao tác hoán đổi: Đẩy số nhỏ 8 lên trước, nđẩy 24 lùi xuống."
-    },
-    {
-      array: [9, 15, 8, 31, 24, 12, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 5 },
-      description: "🔍 Chạy j = 5: So sánh A[j=5] = 12. Có 12 <= pivot (19). Tăng i lên 3, hoán đổi A[i=3] (31) với A[j=5] (12)."
-    },
-    {
-      array: [9, 15, 8, 12, 24, 31, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: 5, swapping: [3, 5] },
-      description: "🔄 Thao tác hoán đổi: Đưa 12 lên đầu mảng."
-    },
-    {
-      array: [9, 15, 8, 12, 24, 31, 19],
-      highlights: { pivot: 6, low: 0, high: 6, active: -1 },
-      description: "🔚 Hoàn tất vòng quét j. Bây giờ, hoán đổi Pivot (19) với giá trị đầu tiên lớn hơn nó (A[i+1=4] = 24)."
-    },
-    {
-      array: [9, 15, 8, 12, 19, 31, 24],
-      highlights: { pivot: 4, low: 0, high: 6, swapping: [4, 6] },
-      description: "💎 Pivot 19 đã ở vị trí chính xác (index 4). Tất cả phần tử bên trái (<19) và bên phải (>19) đều hợp lệ tuyệt đối!"
-    },
-    {
-      array: [8, 9, 12, 15, 19, 24, 31],
-      highlights: {},
-      description: "🎉 Đệ quy hoàn tất sắp xếp mảng con bên trái và bên phải. Kết quả mảng đã được sắp xếp tăng dần hoàn chỉnh: `[8, 9, 12, 15, 19, 24, 31]`."
+  // Dynamic Lomuto step builder for ANY numbers array
+  const generateLomutoSteps = (arrInput: number[]): AlgorithmicStep[] => {
+    const steps: AlgorithmicStep[] = [];
+    const n = arrInput.length;
+    if (n === 0) return [];
+    
+    const currentArr = [...arrInput];
+    const low = 0;
+    const high = n - 1;
+    const pivotVal = currentArr[high];
+    
+    steps.push({
+      array: [...currentArr],
+      highlights: { pivot: high, low, high, active: -1 },
+      description: `🚀 Khởi đầu phân hoạch Lomuto. Chọn chốt pivot = A[high] = ${pivotVal} ở vị trí cuối cùng (index ${high}). Thiết lập chỉ số i = -1.`
+    });
+    
+    let i = low - 1;
+    for (let j = low; j < high; j++) {
+      const valJ = currentArr[j];
+      
+      steps.push({
+        array: [...currentArr],
+        highlights: { pivot: high, low, high, active: j },
+        description: `🔍 j = ${j}: So sánh A[j] (${valJ}) với pivot (${pivotVal}).` + 
+          (valJ <= pivotVal 
+            ? ` Vì ${valJ} <= ${pivotVal}, tăng chỉ số i lên và hoán đổi.` 
+            : ` Vì ${valJ} > ${pivotVal}, không hoán đổi, chỉ số i giữ nguyên ở vị trí index ${i}.`)
+      });
+      
+      if (valJ <= pivotVal) {
+        i++;
+        const valI = currentArr[i];
+        const temp = currentArr[i];
+        currentArr[i] = currentArr[j];
+        currentArr[j] = temp;
+        
+        steps.push({
+          array: [...currentArr],
+          highlights: { pivot: high, low, high, active: j, swapping: [i, j] },
+          description: `🔄 Hoán đổi A[i=${i}] (${valI}) với A[j=${j}] (${valJ}) để dồn phần tử nhỏ hơn lên đầu mảng.`
+        });
+      }
     }
-  ];
+    
+    const targetIdx = i + 1;
+    const targetVal = currentArr[targetIdx];
+    const originalPivotIdx = high;
+    
+    steps.push({
+      array: [...currentArr],
+      highlights: { pivot: originalPivotIdx, low, high, active: -1 },
+      description: `🔚 Đã quét xong mảng con. Chuẩn bị đưa chốt pivot (${pivotVal}) từ cuối về vị trí phân tách mảng i+1 = ${targetIdx} (thay thế giá trị ${targetVal}).`
+    });
+    
+    const temp = currentArr[targetIdx];
+    currentArr[targetIdx] = currentArr[high];
+    currentArr[high] = temp;
+    
+    steps.push({
+      array: [...currentArr],
+      highlights: { pivot: targetIdx, low, high, swapping: [targetIdx, originalPivotIdx] },
+      description: `💎 Chốt pivot (${pivotVal}) đã ở vị trí chính xác tuyệt đối (index ${targetIdx}). Phía bên trái đều bé hơn, bên phải đều lớn hơn hoặc bằng nó.`
+    });
+    
+    const sortedCopy = [...currentArr].sort((a, b) => a - b);
+    steps.push({
+      array: sortedCopy,
+      highlights: {},
+      description: `🎉 Tiếp tục đệ quy chia để trị trên nhánh trái & phải. Mảng sau khi hoàn thiện toàn bộ luồng Quick Sort tăng dần: [${sortedCopy.join(", ")}].`
+    });
+    
+    return steps;
+  };
 
+  const [customArrayInput, setCustomArrayInput] = useState<string>('24, 9, 15, 31, 8, 12, 19');
+  const [visualizerArray, setVisualizerArray] = useState<number[]>([24, 9, 15, 31, 8, 12, 19]);
+  
+  // States of visual steps
+  const [visualSteps, setVisualSteps] = useState<AlgorithmicStep[]>(() => generateLomutoSteps([24, 9, 15, 31, 8, 12, 19]));
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [customInputError, setCustomInputError] = useState<string | null>(null);
+
+  const handleApplyCustomArray = () => {
+    const parts = customArrayInput.split(',').map(s => parseInt(s.trim(), 10));
+    const validNums = parts.filter(n => !isNaN(n));
+
+    if (validNums.length < 3 || validNums.length > 10) {
+      setCustomInputError('Mảng phải có độ dài từ 3 đến 10 số để đảm bảo không gian hiển thị đẹp nhất!');
+      playAudioCue('fail');
+      return;
+    }
+
+    if (validNums.some(n => n < 1 || n > 99)) {
+      setCustomInputError('Vui lòng chỉ nhập các số nguyên dương từ 1 đến 99!');
+      playAudioCue('fail');
+      return;
+    }
+
+    setCustomInputError(null);
+    playAudioCue('success');
+    setVisualizerArray(validNums);
+    const newSteps = generateLomutoSteps(validNums);
+    setVisualSteps(newSteps);
+    setCurrentStepIdx(0);
+    setIsAutoPlaying(false);
+  };
+
+  const handleGenerateRandomArray = () => {
+    const size = Math.floor(Math.random() * 4) + 6; // size between 6 and 9
+    const randomArr: number[] = [];
+    for (let i = 0; i < size; i++) {
+      randomArr.push(Math.floor(Math.random() * 45) + 5); // Numbers between 5 and 50
+    }
+
+    setCustomInputError(null);
+    playAudioCue('success');
+    setCustomArrayInput(randomArr.join(', '));
+    setVisualizerArray(randomArr);
+    const newSteps = generateLomutoSteps(randomArr);
+    setVisualSteps(newSteps);
+    setCurrentStepIdx(0);
+    setIsAutoPlaying(false);
+  };
+
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -230,6 +282,18 @@ def quick_sort(arr, low, high):
     }
     return () => clearInterval(interval);
   }, [isAutoPlaying]);
+
+  // Satisfying ASMR sound effects on sorting step changes
+  useEffect(() => {
+    if (currentStepIdx > 0 && currentStepIdx < visualSteps.length) {
+      const step = visualSteps[currentStepIdx];
+      if (step && step.highlights && step.highlights.swapping) {
+        playAudioCue('swap');
+      } else {
+        playAudioCue('tick');
+      }
+    }
+  }, [currentStepIdx, visualSteps]);
 
   const activeStep = visualSteps[currentStepIdx];
 
@@ -505,15 +569,19 @@ def quick_sort(arr, low, high):
                       onClick={() => {
                         setIsAutoPlaying(false);
                         setCurrentStepIdx((p) => Math.max(0, p - 1));
+                        playAudioCue('click');
                       }}
                       disabled={currentStepIdx === 0}
                       className="bg-[#1b202e] hover:bg-[#252c3f] disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-bold text-xs p-2.5 rounded-lg cursor-pointer flex items-center justify-center transition"
                     >
-                      Mùi lùi
+                      Bước lùi
                     </button>
                     
                     <button
-                      onClick={() => setIsAutoPlaying(!isAutoPlaying)}
+                      onClick={() => {
+                        setIsAutoPlaying(!isAutoPlaying);
+                        playAudioCue('click');
+                      }}
                       className={`font-semibold text-xs px-5 py-2.5 rounded-lg cursor-pointer text-white flex items-center space-x-1.5 shadow-md transition ${
                         isAutoPlaying ? 'bg-amber-600/90 hover:bg-amber-500' : 'bg-indigo-650 hover:bg-indigo-600'
                       }`}
@@ -525,6 +593,7 @@ def quick_sort(arr, low, high):
                       onClick={() => {
                         setIsAutoPlaying(false);
                         setCurrentStepIdx((p) => Math.min(visualSteps.length - 1, p + 1));
+                        playAudioCue('click');
                       }}
                       disabled={currentStepIdx === visualSteps.length - 1}
                       className="bg-[#1a202d] hover:bg-[#262f44] disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-bold text-xs p-2.5 rounded-lg cursor-pointer flex items-center justify-center transition"
@@ -537,6 +606,7 @@ def quick_sort(arr, low, high):
                     onClick={() => {
                       setIsAutoPlaying(false);
                       setCurrentStepIdx(0);
+                      playAudioCue('success');
                     }}
                     className="text-[10px] uppercase font-bold text-slate-500 hover:text-white transition"
                   >

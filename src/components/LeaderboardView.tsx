@@ -509,7 +509,7 @@ export default function LeaderboardView({
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#0c101b_1px,transparent_1px)] bg-[size:2rem_2rem] opacity-20"></div>
           
           <div className="flex items-center space-x-4 relative z-10 text-left">
-            <span className="font-mono text-lg font-bold text-indigo-300 ml-2">#14</span>
+            <span className="font-mono text-lg font-bold text-indigo-300 ml-2">#{userRankIndex}</span>
             
             <div className="relative">
               <img 

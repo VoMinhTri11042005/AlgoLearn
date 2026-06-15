@@ -50,6 +50,92 @@ class AudioSynth {
     });
   }
 
+  playTick() {
+    const ctx = this.init();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(580, now);
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  playClick() {
+    const ctx = this.init();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, now);
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.12);
+  }
+
+  playSwap() {
+    const ctx = this.init();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    
+    // Quick double chime ascending (G5 -> B5)
+    const notes = [
+      { freq: 783.99, delay: 0 },
+      { freq: 987.77, delay: 0.06 }
+    ];
+
+    notes.forEach((n) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(n.freq, now + n.delay);
+      gain.gain.setValueAtTime(0, now + n.delay);
+      gain.gain.linearRampToValueAtTime(0.06, now + n.delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + n.delay + 0.15);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + n.delay);
+      osc.stop(now + n.delay + 0.2);
+    });
+  }
+
+  playFail() {
+    const ctx = this.init();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    
+    // Fat, buzz-like alerts for failures
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(140, now + 0.25);
+    
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
+
   async playGoalAchieved() {
     // 1. Try playing with the premium Tone.js library
     try {
@@ -237,7 +323,7 @@ export const setSoundEnabled = (enabled: boolean): void => {
   }
 };
 
-export const playAudioCue = (type: 'success' | 'goal'): void => {
+export const playAudioCue = (type: 'success' | 'goal' | 'tick' | 'click' | 'swap' | 'fail'): void => {
   try {
     const isSoundEnabled = getSoundEnabled();
     if (!isSoundEnabled) return;
@@ -247,6 +333,14 @@ export const playAudioCue = (type: 'success' | 'goal'): void => {
       synth.playSuccess();
     } else if (type === 'goal') {
       synth.playGoalAchieved();
+    } else if (type === 'tick') {
+      synth.playTick();
+    } else if (type === 'click') {
+      synth.playClick();
+    } else if (type === 'swap') {
+      synth.playSwap();
+    } else if (type === 'fail') {
+      synth.playFail();
     }
   } catch (error) {
     console.warn('Audio Context is blocked or not supported:', error);

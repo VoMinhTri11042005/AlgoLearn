@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Message } from '../types';
 import { CodeHighlight } from './CodeHighlight';
+import { playAudioCue } from '../utils/audio';
 
 interface TheoryViewProps {
   onNavigate: (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard') => void;
@@ -750,6 +751,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
       ...prev,
       [targetSlot]: option
     }));
+    playAudioCue('tick');
     
     const nextSlot = targetSlot + 1;
     if (nextSlot < totalGaps) {
@@ -764,6 +766,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
       delete copy[slotId];
       return copy;
     });
+    playAudioCue('click');
     setActiveSlotId(slotId);
   };
 
@@ -781,10 +784,12 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
     
     if (isAllCorrect) {
       setQuizStatus('correct');
+      playAudioCue('success');
       const event = new CustomEvent('algolearn_award_xp', { detail: { amount: 50 } });
       window.dispatchEvent(event);
     } else {
       setQuizStatus('wrong');
+      playAudioCue('fail');
       setHearts(prev => {
         const nextHearts = prev - 1;
         if (nextHearts <= 0) {
@@ -799,6 +804,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
 
   const handleNextQuizQuestion = () => {
     const nextIndex = quizIndex + 1;
+    playAudioCue('click');
     if (nextIndex < QUIZ_QUESTIONS.length) {
       setQuizIndex(nextIndex);
       setSelectedAnswers({});
@@ -810,6 +816,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
   };
 
   const handleRestartQuiz = () => {
+    playAudioCue('success');
     setQuizIndex(0);
     setHearts(5);
     setSelectedAnswers({});

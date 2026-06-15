@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import HomeView from './components/HomeView';
@@ -49,6 +49,20 @@ export default function App() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
+  // Floating XP mouse coordinates track state
+  const [floatingXps, setFloatingXps] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
+  const mouseRef = useRef({ x: typeof window !== 'undefined' ? window.innerWidth / 2 : 500, y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
   // Experience and progress states
   const [userXp, setUserXp] = useState<number>(() => {
     try {
@@ -77,6 +91,21 @@ export default function App() {
   });
 
   const handleAwardXp = (amount: number, solvedIncrement: number = 0) => {
+    // Generate a beautiful floating XP popup at mouse cursor position
+    const uniqueId = Math.random().toString(36).substring(2, 11);
+    setFloatingXps(prev => [
+      ...prev,
+      {
+        id: uniqueId,
+        xp: amount,
+        x: mouseRef.current.x,
+        y: mouseRef.current.y
+      }
+    ]);
+    setTimeout(() => {
+      setFloatingXps(prev => prev.filter(item => item.id !== uniqueId));
+    }, 1500);
+
     setUserXp(prev => {
       const nextXp = prev + amount;
       localStorage.setItem('algolearn_user_xp', String(nextXp));
@@ -357,6 +386,39 @@ export default function App() {
       });
     }
   }, [streak, currentUser]);
+
+  // Synchronize authenticated user's profile changes (XP, solved, streak) to the backend database
+  useEffect(() => {
+    if (currentUser) {
+      const lastSyncedKey = `algolearn_last_synced_${currentUser.id}`;
+      const lastSyncedData = localStorage.getItem(lastSyncedKey);
+      const currentDataStr = JSON.stringify({
+        xp: currentUser.xp,
+        solved: currentUser.solved,
+        streak: currentUser.streak
+      });
+
+      if (lastSyncedData !== currentDataStr) {
+        fetch('/api/auth/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUser.id,
+            xp: currentUser.xp,
+            solved: currentUser.solved,
+            streak: currentUser.streak
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.user) {
+            localStorage.setItem(lastSyncedKey, currentDataStr);
+          }
+        })
+        .catch(err => console.error('Failed to sync profile with server', err));
+      }
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (streakRipples.length > 0) {
@@ -2632,12 +2694,12 @@ export default function App() {
                               setTempNote(dayNotes[day.date] || '');
                             }}
                             title={`Ngày ${day.displayDate}: ${levelLabel}${day.isToday ? ' (Hôm nay)' : ''}`}
-                            className={`aspect-square rounded-md border flex flex-col items-center justify-center text-[9px] font-mono select-none transition-all hover:scale-110 hover:border-indigo-400 cursor-pointer ${colorClass} ${
+                            className={`aspect-square rounded-md border flex flex-col items-center justify-center text-[9px] font-mono select-none transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform hover:scale-120 hover:z-10 hover:shadow-md hover:shadow-indigo-500/30 hover:border-indigo-400 cursor-pointer ${colorClass} ${
                               isSelected 
                                 ? 'ring-2 ring-emerald-300 border-transparent scale-110 shadow-lg shadow-emerald-500/20' 
                                 : day.isToday 
                                   ? 'ring-2 ring-indigo-500 border-transparent scale-105' 
-                                  : ''
+                                  : 'scale-100'
                             }`}
                           >
                             {day.displayDate.split('/')[0]}
@@ -3209,6 +3271,28 @@ export default function App() {
           Alt+N
         </kbd>
       </motion.button>
+
+      {/* Floating Mouse pointer XP badges with physics upward waves */}
+      <AnimatePresence shrink={false}>
+        {floatingXps.map((item) => (
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, scale: 0.3, x: item.x - 40, y: item.y - 12 }}
+            animate={{ 
+              opacity: [0, 1, 1, 0], 
+              scale: [0.6, 1.25, 1, 0.85], 
+              y: item.y - 140, 
+              x: item.x - 40 + (Math.sin(parseInt(item.id.slice(-2), 36) || 0) * 35)
+            }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ duration: 1.4, ease: "easeOut" }}
+            className="fixed pointer-events-none z-[999999] flex items-center space-x-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs px-3 py-1.5 rounded-full shadow-[0_12px_28px_-4px_rgba(245,158,11,0.5),0_0_15px_rgba(234,179,8,0.3)] border border-yellow-300"
+          >
+            <Star className="w-3.5 h-3.5 fill-current text-slate-950 stroke-[2.5]" />
+            <span className="font-mono tracking-tight font-extrabold text-[11px]">+{item.xp} XP</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
 
     </div>
   );

@@ -4,6 +4,7 @@ import {
   Swords, ShieldAlert, Zap, Compass, Send, Key, Bug,
   Trophy, CheckCircle, HelpCircle, ChevronRight, AlertTriangle, Eye, EyeOff
 } from 'lucide-react';
+import { playAudioCue } from '../utils/audio';
 
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -70,6 +71,7 @@ class Solution:
   };
 
   const handleTriggerPowerUp = (type: 'fog' | 'auto' | 'ai') => {
+    playAudioCue('swap');
     if (type === 'fog') {
       setActiveSabotage('sương_mù');
       setTimeout(() => {
@@ -83,6 +85,7 @@ class Solution:
   };
 
   const handleSubmit = () => {
+    playAudioCue('click');
     setIsEvaluating(true);
     setResultsLogs([
       "⚙️ Kết nối máy chủ chấm bài Sandbox Server...",
@@ -101,11 +104,13 @@ class Solution:
       ]);
       setIsEvaluating(false);
       setHasSubmitted(true);
+      playAudioCue('success');
 
       // Transition to final result shortly
       // If we used speed boost or optimized, let's trigger VICTORY. Otherwise, if we took too long, maybe defeat? Let's give Victory as default or let the user choose!
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('algolearn_practice_completed'));
+        playAudioCue('goal');
         onOpenResult('victory');
       }, 3000);
     }, 2000);
