@@ -1138,8 +1138,11 @@ Context of Current Screen/Lesson: ${context || "Trang lý thuyết Quick Sort"}.
     });
   }
 
-  app.listen(PORT, "127.0.0.1", () => {
-    console.log(`Server running on http://127.0.0.1:${PORT}`);
+  // Render/production: never bind to loopback only. Must listen on 0.0.0.0.
+  const rawHost = process.env.HOST || '0.0.0.0';
+  const host = (rawHost === '127.0.0.1' || rawHost === 'localhost') ? '0.0.0.0' : rawHost;
+  app.listen(PORT, host, () => {
+    console.log(`Server running on http://${host}:${PORT}`);
   });
 
 }
