@@ -966,35 +966,33 @@ export default function App() {
   };
 
   // NOTE: Practice/streak/daily should be recorded ONLY by explicit successful events.
-  // Auto-record on tab/view change leads to double-counting across components and events.
+  // Listen to custom events for successful compiler runs or messaging.
+  // Guard against multiple dispatches on the same day (anti-double-count).
 
-
-  // Listen to custom event for successful compiler runs or messaging
   useEffect(() => {
     const handlePracticeCompleted = () => {
-      // Practice completed event is the ONLY source to update streak/daily progress.
-      // Use force on streak record to allow dailyCompleted increment to remain correct,
-      // but recordPractice itself will still guard against duplicate streak writes.
+      const todayStr = getLocalDateString(new Date());
+      const userId = currentUser?.id || 'guest';
+      const lastKey = `algolearn_last_daily_practice_event_${userId}_${todayStr}`;
+
+      if (localStorage.getItem(lastKey) === 'done') return;
+
       recordPractice({ force: false });
       incrementDailyCompleted();
+      localStorage.setItem(lastKey, 'done');
       setShouldSyncProfile(true);
-
     };
 
-    
     const handleAwardXpEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ amount: number }>;
       if (customEvent.detail && typeof customEvent.detail.amount === 'number') {
         const amount = customEvent.detail.amount;
-
-        // Award XP only. Practice completion + streak/daily counting is handled
-        // exclusively by the algolearn_practice_completed event source.
+        // Award XP only. Practice completion + streak/daily counting handled exclusively by
+        // algolearn_practice_completed.
         handleAwardXp(amount, 0);
         setShouldSyncProfile(true);
       }
     };
-
-
 
     window.addEventListener('algolearn_practice_completed', handlePracticeCompleted);
     window.addEventListener('algolearn_award_xp', handleAwardXpEvent as EventListener);
@@ -1002,7 +1000,8 @@ export default function App() {
       window.removeEventListener('algolearn_practice_completed', handlePracticeCompleted);
       window.removeEventListener('algolearn_award_xp', handleAwardXpEvent as EventListener);
     };
-  }, [currentUser, userXp]);
+  }, [currentUser]);
+
 
   const handleIncrementStreak = () => {
     const newStreak = streak + 1;

@@ -327,7 +327,8 @@ def quick_sort(arr, low, high):
       ]);
       setIsCompiling(false);
       setHasRun(true);
-      window.dispatchEvent(new CustomEvent('algolearn_practice_completed'));
+      // Prevent duplicate practice completion events (streak/daily logic lives in App.tsx)
+      window.dispatchEvent(new CustomEvent('algolearn_practice_completed', { detail: { source: 'ide' } }));
     }, 1500);
   };
 

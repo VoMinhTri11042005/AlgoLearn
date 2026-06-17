@@ -77,11 +77,12 @@ export default function LeaderboardView({
 
   const currentLeadersList = (leaders && leaders.length > 0) ? leaders : defaultLeaders;
 
-  // Map isSelf dynamically
+  // Map isSelf dynamically (authoritative by user id)
   const mappedLeadersList = currentLeadersList.map(leader => {
-    const isSelf = currentUser ? (leader.name === currentUser.name || (leader as any).id === currentUser.id) : false;
+    const isSelf = currentUser ? leader.id === currentUser.id : false;
     return { ...leader, isSelf };
   });
+
 
   // Filter list
   const filteredLeaders = mappedLeadersList.filter(leader => {

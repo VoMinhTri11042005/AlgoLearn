@@ -109,7 +109,8 @@ class Solution:
       // Transition to final result shortly
       // If we used speed boost or optimized, let's trigger VICTORY. Otherwise, if we took too long, maybe defeat? Let's give Victory as default or let the user choose!
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('algolearn_practice_completed'));
+        // Prevent duplicate practice completion events (streak/daily logic lives in App.tsx)
+        window.dispatchEvent(new CustomEvent('algolearn_practice_completed', { detail: { source: 'arena' } }));
         playAudioCue('goal');
         onOpenResult('victory');
       }, 3000);

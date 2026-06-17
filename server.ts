@@ -77,6 +77,8 @@ const INITIAL_USERS: DBUser[] = [
     streak: 100,
     createdAt: new Date().toISOString(),
     isAdmin: true,
+    // NOTE: passwords in INITIAL_USERS are kept plaintext only for initial development seeding.
+    // They will be hashed before insertion.
     password: 'admin123'
   },
   {
@@ -362,22 +364,46 @@ async function connectPostgres(connectionString?: string): Promise<boolean> {
       console.warn("Could not execute inline ALTER TABLE syllabus migrations (might be due to restricted public schema permissions or columns already exist):", migrationsErr.message || migrationsErr);
     }
 
-    // Bootstrap Users Seeding
+    // Bootstrap Users Seeding + ensure bcrypt hashes (rehash plaintext seeds if needed)
     try {
       const userCountRes = await client.query("SELECT COUNT(*) FROM users");
       if (parseInt(userCountRes.rows[0].count, 10) === 0) {
         console.log("Seeding initial users into PostgreSQL...");
         for (const u of INITIAL_USERS) {
+          // INITIAL_USERS may contain plaintext password for seeding/dev.
+          // Always store bcrypt hash into DB.
+          const hashed = await bcrypt.hash(u.password || '', 10);
           await client.query(
             `INSERT INTO users (id, name, email, school, avatar, xp, solved, streak, created_at, is_admin, password)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [u.id, u.name, u.email, u.school, u.avatar, u.xp, u.solved, u.streak, u.createdAt, u.isAdmin, u.password]
+            [u.id, u.name, u.email, u.school, u.avatar, u.xp, u.solved, u.streak, u.createdAt, u.isAdmin, hashed]
           );
         }
+      }
+
+      // Rehash any plaintext passwords that might already exist in old DBs.
+      // Plaintext rows will not start with $2a$/$2b$/$2y$.
+      // NOTE: we can only safely rehash rows for users whose expected plaintext is known in INITIAL_USERS.
+      const existingUsers = await client.query(
+        "SELECT id, email, password FROM users"
+      );
+
+      for (const row of existingUsers.rows as any[]) {
+        const id = row.id as string;
+        const stored = (row.password || '') as string;
+        const isBcrypt = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$');
+        if (isBcrypt) continue;
+
+        const seedUser = INITIAL_USERS.find(u => u.id === id || u.email.toLowerCase() === String(row.email || '').toLowerCase());
+        if (!seedUser || !seedUser.password) continue;
+
+        const newHash = await bcrypt.hash(seedUser.password, 10);
+        await client.query("UPDATE users SET password = $1 WHERE id = $2", [newHash, id]);
       }
     } catch (seedErr: any) {
       console.warn("Could not query or seed users table (perhaps table creation failed):", seedErr.message || seedErr);
     }
+
 
     // Bootstrap Syllabus Seeding
     try {
@@ -653,6 +679,12 @@ async function registerDBUser(user: Omit<DBUser, "id" | "createdAt" | "isAdmin" 
 
   const hashed = await bcrypt.hash(user.password, 10);
 
+  // SECURITY: register luôn lưu bcrypt hash.
+  // Nếu DB cũ đã từng seed plaintext password thì endpoint login sẽ KHÔNG chấp nhận plaintext.
+  // (Chúng ta sẽ thêm re-hash seed ở dưới để đảm bảo các user ban đầu luôn dùng bcrypt.)
+
+
+
 
   if (usePostgres && dbPool) {
     try {
@@ -724,7 +756,8 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
 
         const isMatch = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')
           ? await bcrypt.compare(password, stored)
-          : stored === password; // backward compatibility for existing plaintext users
+          : false; // SECURITY: do not accept plaintext passwords
+
 
         if (!isMatch) return null;
 
@@ -753,9 +786,10 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
   const stored: string = found.password || '';
   const isMatch = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')
     ? await bcrypt.compare(password, stored)
-    : stored === password;
+    : false;
 
   return isMatch ? found : null;
+
 }
 
 
