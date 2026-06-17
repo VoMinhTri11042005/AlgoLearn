@@ -30,7 +30,56 @@ const SCHOOL_SUGGESTIONS = [
   "Học viện Bưu chính Viễn thông (PTIT)",
   "ĐH Sư Phạm Kỹ Thuật TPHCM (HCMUTE)",
   "Đại học Khoa học Tự nhiên - ĐHQG-HCM",
-  "Đại học Tôn Đức Thắng (TDTU)"
+  "Đại học Tôn Đức Thắng (TDTU)",
+
+  // Mở rộng ~50 trường để đủ danh sách lựa chọn
+  "ĐH Quốc tế - ĐHQG-HCM (IU)",
+  "ĐH Bách Khoa TP.HCM (HCMUT)",
+  "ĐH Khoa học Tự nhiên - ĐHQG-Hà Nội (US)",
+  "ĐH Công nghệ thông tin & Truyền thông Thái Nguyên (ICTU)",
+  "ĐH Công nghiệp Hà Nội (HAUI)",
+  "ĐH Công nghiệp TP.HCM (IUH)",
+  "ĐH Thái Nguyên (TNU)",
+  "ĐH Tài nguyên & Môi trường Hà Nội (huyền thoại)",
+  "ĐH Giao thông Vận tải (UT)",
+  "ĐH Mỏ - Địa chất (UMT)",
+  "ĐH Điện lực (EPU)",
+  "ĐH Xây dựng (NUCE)",
+  "ĐH Quốc gia TP.HCM - Trường ĐH CNTT (CS)",
+  "ĐH Sư phạm Kỹ thuật Vinh (SPKT)",
+  "ĐH Sư phạm Kỹ thuật Đà Nẵng (UDS)",
+  "ĐH Sư phạm Kỹ thuật TP.HCM (HCMUTE)",
+  "ĐH Khoa học - ĐH Huế (HUS)",
+  "ĐH Đà Nẵng (UD)",
+  "ĐH Quy Nhơn (QNU)",
+  "ĐH Nha Trang (NTU)",
+  "ĐH Cần Thơ (CTU)",
+  "ĐH Đồng Tháp (DTU)",
+  "ĐH Vinh (VNU)",
+  "ĐH Huế - CNTT (UIT)",
+  "ĐH Bách khoa - ĐH Đà Nẵng (DUT)",
+  "ĐH Sài Gòn (US)",
+  "ĐH Ngân hàng TP.HCM (UB)",
+  "ĐH Văn Lang (VL)",
+  "ĐH Hoa Sen (HSU)",
+  "ĐH Tương lai (FUT)",
+  "ĐH Nguyễn Tất Thành (NTT)",
+  "ĐH Kinh tế - Luật (UEL)",
+  "ĐH Luật TP.HCM (HCMUL)",
+  "ĐH Quốc tế Miền Đông (EIU)",
+  "ĐH Bà Rịa - Vũng Tàu (BVU)",
+  "ĐH Tây Nguyên (DTU)",
+  "ĐH Kiến trúc TP.HCM (UAPHCM)",
+  "ĐH Bách khoa - ĐH Quốc gia HCM (VNU-HCM)",
+  "ĐH FPT Cần Thơ",
+  "ĐH FPT Đà Nẵng",
+  "ĐH FPT Hà Nội",
+  "ĐH FPT Hồ Chí Minh",
+  "ĐH Bách Khoa - Đại học Đà Nẵng (DUT)",
+  "ĐH Công nghệ Sài Gòn (STU)",
+  "ĐH Duy Tân (DTU - Deutay)",
+  "ĐH Đông Á (DAU)",
+  "ĐH Sư phạm Kỹ thuật Nam Định (SPKTNĐ)",
 ];
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalProps) {
@@ -412,20 +461,37 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
                 <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide font-sans">TRƯỜNG ĐẠI HỌC</label>
                 <div className="relative">
                   <GraduationCap className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    list="school-suggestions"
-                    placeholder="Chọn hoặc nhập trường bạn học"
+                  <select
                     value={regSchool}
                     onChange={(e) => setRegSchool(e.target.value)}
-                    className="w-full bg-[#030712] border border-slate-900 rounded-xl py-2.5 pl-10 pr-4 text-xs font-semibold text-gray-100 placeholder-slate-600 outline-none focus:border-indigo-500 transition-all font-sans"
-                    maxLength={60}
-                  />
-                  <datalist id="school-suggestions">
+                    className="w-full bg-[#030712] border border-slate-900 rounded-xl py-2.5 pl-10 pr-4 text-xs font-semibold text-gray-100 outline-none focus:border-indigo-500 transition-all font-sans"
+                  >
+
+                    <option value="" disabled>
+                      Chọn trường đại học (hoặc chọn “Khác...”)
+                    </option>
                     {SCHOOL_SUGGESTIONS.map((sc, ix) => (
-                      <option key={ix} value={sc} />
+                      <option key={ix} value={sc}>
+                        {sc}
+                      </option>
                     ))}
-                  </datalist>
+                    <option value="__OTHER__">Khác...</option>
+                  </select>
+
+                  {/* If user picks “Khác...”, show an input to type custom school */}
+                  {regSchool === '__OTHER__' && (
+                    <input
+                      type="text"
+                      placeholder="Nhập tên trường của bạn"
+                      value={regSchool}
+                      onChange={(e) => setRegSchool(e.target.value)}
+                      className="mt-2 w-full bg-[#030712] border border-slate-900 rounded-xl py-2.5 px-3 text-xs font-semibold text-gray-100 placeholder-slate-600 outline-none focus:border-indigo-500 transition-all font-sans"
+                      maxLength={60}
+                    />
+                  )}
+
+
+
                 </div>
               </div>
 

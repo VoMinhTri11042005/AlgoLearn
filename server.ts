@@ -5,8 +5,21 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import fs from "fs";
 import pg from "pg";
+import cookieParser from "cookie-parser";
+import session from "express-session";
+import bcrypt from "bcryptjs";
+
+// Session typing for TypeScript
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    isAdmin?: boolean;
+  }
+}
 
 const { Pool } = pg;
+
+
 
 dotenv.config();
 
@@ -638,6 +651,9 @@ async function registerDBUser(user: Omit<DBUser, "id" | "createdAt" | "isAdmin" 
   const isAdmin = emailQuery === 'admin@algolearn.vn';
   const createdAt = new Date().toISOString();
 
+  const hashed = await bcrypt.hash(user.password, 10);
+
+
   if (usePostgres && dbPool) {
     try {
       const check = await dbPool.query("SELECT id FROM users WHERE email = $1", [emailQuery]);
@@ -648,8 +664,9 @@ async function registerDBUser(user: Omit<DBUser, "id" | "createdAt" | "isAdmin" 
         `INSERT INTO users (id, name, email, school, avatar, xp, solved, streak, created_at, is_admin, password)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING id, name, email, school, avatar, xp, solved, streak, created_at, is_admin`,
-        [id, user.name, emailQuery, user.school, user.avatar, 0, 0, 1, createdAt, isAdmin, user.password]
+        [id, user.name, emailQuery, user.school, user.avatar, 0, 0, 1, createdAt, isAdmin, hashed]
       );
+
       if (res.rows.length > 0) {
         const row = res.rows[0];
         return {
@@ -685,8 +702,9 @@ async function registerDBUser(user: Omit<DBUser, "id" | "createdAt" | "isAdmin" 
     streak: 1,
     createdAt,
     isAdmin,
-    password: user.password
+    password: hashed
   };
+
   currentDb.users.push(newUser);
   saveDB(currentDb);
   return newUser;
@@ -701,30 +719,45 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
         [emailQuery]
       );
       if (res.rows.length > 0) {
-        const row = res.rows[0];
-        if (row.password === password) {
-          return {
-            id: row.id,
-            name: row.name,
-            email: row.email,
-            school: row.school,
-            avatar: row.avatar,
-            xp: row.xp,
-            solved: row.solved,
-            streak: row.streak,
-            createdAt: row.created_at,
-            isAdmin: row.is_admin
-          };
-        }
+        const row = res.rows[0] as any;
+        const stored: string = row.password;
+
+        const isMatch = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')
+          ? await bcrypt.compare(password, stored)
+          : stored === password; // backward compatibility for existing plaintext users
+
+        if (!isMatch) return null;
+
+        return {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          school: row.school,
+          avatar: row.avatar,
+          xp: row.xp,
+          solved: row.solved,
+          streak: row.streak,
+          createdAt: row.created_at,
+          isAdmin: row.is_admin
+        };
       }
     } catch (e) {
       console.error("PG login user error, fallback to local:", e);
     }
   }
+
   const currentDb = initDB();
-  const found = currentDb.users.find(u => u.email.toLowerCase() === emailQuery && u.password === password);
-  return found || null;
+  const found = currentDb.users.find(u => u.email.toLowerCase() === emailQuery);
+  if (!found) return null;
+
+  const stored: string = found.password || '';
+  const isMatch = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')
+    ? await bcrypt.compare(password, stored)
+    : stored === password;
+
+  return isMatch ? found : null;
 }
+
 
 async function updateDBProfile(userId: string, xp?: number, solved?: number, streak?: number): Promise<DBUser | null> {
   if (usePostgres && dbPool) {
@@ -789,6 +822,32 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(cookieParser());
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || 'dev_session_secret_change_me',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      },
+    })
+  );
+
+  // Very small auth helpers (session-based)
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (req.session?.userId) return next();
+    return res.status(401).json({ error: 'Unauthorized' });
+  };
+
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (req.session?.isAdmin) return next();
+    return res.status(403).json({ error: 'Admin only' });
+  };
+
 
   // Connect PostgreSQL status on startup
   await connectPostgres();
@@ -909,9 +968,10 @@ async function startServer() {
   });
 
   // API Route - Update user role (Admin only)
-  app.post("/api/users/update-role", async (req, res) => {
+  app.post("/api/users/update-role", requireAdmin, async (req, res) => {
     const { userId, role } = req.body;
     const updatedUser = await updateDBUserRole(userId, role);
+
     if (updatedUser) {
       const users = await getDBUsers();
       const mappedUsers = users.map(({ password, ...u }) => ({
@@ -925,8 +985,9 @@ async function startServer() {
   });
 
   // API Route - Delete user (Admin only)
-  app.post("/api/users/delete", async (req, res) => {
+  app.post("/api/users/delete", requireAdmin, async (req, res) => {
     const { userId } = req.body;
+
     await deleteDBUser(userId);
     res.json({ message: "User removed successfully!" });
   });
@@ -952,15 +1013,20 @@ async function startServer() {
   app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
 
+
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
     }
 
     const matchedUser = await loginDBUser(email, password);
     if (matchedUser) {
+      req.session.userId = matchedUser.id;
+      req.session.isAdmin = matchedUser.isAdmin;
+
       const { password: _, ...userResponse } = matchedUser;
       res.json({ user: userResponse, message: "Login success!" });
     } else {
+
       res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu! Vui lòng kiểm tra kỹ." });
     }
   });
@@ -1072,9 +1138,21 @@ Context of Current Screen/Lesson: ${context || "Trang lý thuyết Quick Sort"}.
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, "127.0.0.1", () => {
+    console.log(`Server running on http://127.0.0.1:${PORT}`);
   });
+
 }
 
-startServer();
+// Crash visibility helpers (so we can fix issues like "Server running" but port not actually open)
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] unhandledRejection:', reason);
+});
+
+startServer().catch((err) => {
+  console.error('[FATAL] startServer failed:', err);
+});
+

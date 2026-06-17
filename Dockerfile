@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Cài đặt toàn bộ dependencies bao gồm cả devDependencies để phục vụ cho việc biên dịch
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Sao chép toàn bộ mã nguồn dự án vào container
 COPY . .
@@ -28,7 +28,7 @@ ENV PORT=3000
 COPY package*.json ./
 
 # Cài đặt tối giản các thư viện chính để chạy (bỏ qua devDependencies)
-RUN npm ci --only=production
+RUN npm install --no-audit --no-fund
 
 # Sao chép kết quả đã biên dịch từ stage builder vào runner stage
 COPY --from=builder /app/dist ./dist

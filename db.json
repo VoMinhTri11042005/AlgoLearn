@@ -1,0 +1,185 @@
+{
+  "users": [
+    {
+      "id": "admin-id-default",
+      "name": "Đại Ca Admin",
+      "email": "admin@algolearn.vn",
+      "school": "Hệ Thống Trực Tuyến AlgoLearn",
+      "avatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80",
+      "xp": 99999,
+      "solved": 500,
+      "streak": 100,
+      "createdAt": "2026-06-16T17:58:05.205Z",
+      "isAdmin": true,
+      "password": "admin123"
+    },
+    {
+      "id": "felix",
+      "name": "Felix Nguyễn",
+      "email": "felix@algolearn.vn",
+      "school": "Đại học Bách Khoa Hà Nội (HUST)",
+      "xp": 24900,
+      "solved": 142,
+      "avatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80",
+      "streak": 88,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "sarah",
+      "name": "Sarah Trần",
+      "email": "sarah@algolearn.vn",
+      "school": "ĐH Công nghệ thông tin - ĐHQG-HCM",
+      "xp": 22100,
+      "solved": 121,
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80",
+      "streak": 64,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "alex",
+      "name": "Alex Lê",
+      "email": "alex@algolearn.vn",
+      "school": "ĐH Công nghệ - ĐHQGHN (UET)",
+      "xp": 19850,
+      "solved": 98,
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80",
+      "streak": 45,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "minh-duc",
+      "name": "Phạm Minh Đức",
+      "email": "minhduc@algolearn.vn",
+      "school": "Đại học FPT",
+      "xp": 17200,
+      "solved": 85,
+      "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80",
+      "streak": 30,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "khanh-linh",
+      "name": "Vũ Khánh Linh",
+      "email": "khanhlinh@algolearn.vn",
+      "school": "Bách Khoa Đà Nẵng (DUT)",
+      "xp": 16800,
+      "solved": 84,
+      "avatar": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&auto=format&fit=crop&q=80",
+      "streak": 28,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "duy-nam",
+      "name": "Hoàng Duy Nam",
+      "email": "duynam@algolearn.vn",
+      "school": "Học viện Bưu chính Viễn thông (PTIT)",
+      "xp": 15950,
+      "solved": 77,
+      "avatar": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop&q=80",
+      "streak": 21,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "bao-long",
+      "name": "Trần Bảo Long",
+      "email": "baolong@algolearn.vn",
+      "school": "ĐH Sư Phạm Kỹ Thuật TPHCM (HCMUTE)",
+      "xp": 14600,
+      "solved": 71,
+      "avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop&q=80",
+      "streak": 18,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "user123"
+    },
+    {
+      "id": "hutech-sv-default",
+      "name": "Sinh Viên HUTECH",
+      "email": "hutech_sv@algolearn.vn",
+      "school": "Đại học Công nghệ TP.HCM (HUTECH)",
+      "xp": 12500,
+      "solved": 55,
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80",
+      "streak": 5,
+      "createdAt": "2026-06-16T17:58:05.206Z",
+      "isAdmin": false,
+      "password": "hutech123"
+    },
+    {
+      "id": "usr_tiouwzopo",
+      "name": "Võ Minh Trí",
+      "email": "tri@gmail.com",
+      "school": "IUH",
+      "avatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80",
+      "xp": 0,
+      "solved": 0,
+      "streak": 1,
+      "createdAt": "2026-06-16T18:10:11.625Z",
+      "isAdmin": false,
+      "password": "$2b$10$6aBXF8Ko/G9Zi/d3Ds.F7O/XnnBFVJjcawXRztD8dxAb..G4TfHjG"
+    }
+  ],
+  "syllabus": [
+    {
+      "id": "1",
+      "title": "Bài 1: Tổng quan về Thuật toán & Big O",
+      "progress": 100,
+      "active": false,
+      "difficulty": "easy"
+    },
+    {
+      "id": "2",
+      "title": "Bài 2: Mảng & Danh sách liên kết",
+      "progress": 100,
+      "active": false,
+      "difficulty": "easy"
+    },
+    {
+      "id": "3",
+      "title": "Bài 3: Cấu trúc Đệ quy & Quy hoạch động",
+      "progress": 80,
+      "active": false,
+      "difficulty": "hard"
+    },
+    {
+      "id": "4",
+      "title": "Bài 4: Thuật toán Sắp xếp cơ bản",
+      "progress": 100,
+      "active": false,
+      "difficulty": "easy"
+    },
+    {
+      "id": "5",
+      "title": "Bài 5: Thuật toán Quick Sort",
+      "progress": 0,
+      "active": true,
+      "difficulty": "medium"
+    },
+    {
+      "id": "6",
+      "title": "Bài 6: Sắp xếp trộn Merge Sort",
+      "progress": 0,
+      "active": false,
+      "difficulty": "medium"
+    },
+    {
+      "id": "7",
+      "title": "Bài 7: Tìm kiếm theo Chiều rộng (BFS)",
+      "progress": 0,
+      "active": false,
+      "difficulty": "medium"
+    }
+  ]
+}

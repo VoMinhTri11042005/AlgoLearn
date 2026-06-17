@@ -388,37 +388,46 @@ export default function App() {
   }, [streak, currentUser]);
 
   // Synchronize authenticated user's profile changes (XP, solved, streak) to the backend database
+  // IMPORTANT: prevent local-only state changes from overwriting server state in tight loops.
+  // We only attempt to sync after explicit practice completion / XP award flow.
+  const [shouldSyncProfile, setShouldSyncProfile] = useState(false);
+
   useEffect(() => {
-    if (currentUser) {
-      const lastSyncedKey = `algolearn_last_synced_${currentUser.id}`;
-      const lastSyncedData = localStorage.getItem(lastSyncedKey);
-      const currentDataStr = JSON.stringify({
+    if (!currentUser || !shouldSyncProfile) return;
+
+    const lastSyncedKey = `algolearn_last_synced_${currentUser.id}`;
+    const lastSyncedData = localStorage.getItem(lastSyncedKey);
+    const currentDataStr = JSON.stringify({
+      xp: currentUser.xp,
+      solved: currentUser.solved,
+      streak: currentUser.streak,
+    });
+
+    if (lastSyncedData === currentDataStr) {
+      setShouldSyncProfile(false);
+      return;
+    }
+
+    fetch('/api/auth/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
         xp: currentUser.xp,
         solved: currentUser.solved,
-        streak: currentUser.streak
-      });
+        streak: currentUser.streak,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.user) {
+          localStorage.setItem(lastSyncedKey, currentDataStr);
+        }
+      })
+      .catch((err) => console.error('Failed to sync profile with server', err))
+      .finally(() => setShouldSyncProfile(false));
+  }, [currentUser, shouldSyncProfile]);
 
-      if (lastSyncedData !== currentDataStr) {
-        fetch('/api/auth/update-profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            xp: currentUser.xp,
-            solved: currentUser.solved,
-            streak: currentUser.streak
-          })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.user) {
-            localStorage.setItem(lastSyncedKey, currentDataStr);
-          }
-        })
-        .catch(err => console.error('Failed to sync profile with server', err));
-      }
-    }
-  }, [currentUser]);
 
   useEffect(() => {
     if (streakRipples.length > 0) {
@@ -863,11 +872,21 @@ export default function App() {
   const incrementDailyCompleted = () => {
     try {
       const todayStr = getLocalDateString(new Date());
+
+      // Anti-double-count: nếu hôm nay đã increment rồi thì bỏ qua.
+      const lastIncrementedForToday = localStorage.getItem('algolearn_last_daily_increment_date');
+      if (lastIncrementedForToday === todayStr) {
+        return;
+      }
+
+      localStorage.setItem('algolearn_last_daily_increment_date', todayStr);
+
       setDailyCompleted((prev) => {
         const nextCompleted = prev + 1;
         localStorage.setItem('algolearn_daily_completed_date', todayStr);
         localStorage.setItem('algolearn_daily_completed_count', String(nextCompleted));
         updateCompletedHistory(todayStr, nextCompleted);
+
         
         // Show celebration toast if they reach their target exactly!
         if (nextCompleted === dailyGoal) {
@@ -885,18 +904,19 @@ export default function App() {
     }
   };
 
-  const recordPractice = () => {
+  const recordPractice = (opts?: { force?: boolean }) => {
     try {
       const todayStr = getLocalDateString(new Date());
       const lastDateStr = localStorage.getItem('algolearn_last_practice_date');
       const savedStreak = localStorage.getItem('algolearn_streak_count');
-      
-      let currentStreak = parseInt(savedStreak || '1', 10);
-      
-      if (lastDateStr === todayStr) {
-        // Already practiced and recorded today
+
+      // Anti-double-count: nếu đã ghi nhận streak hôm nay thì chỉ cho phép bỏ qua
+      if (!opts?.force && lastDateStr === todayStr) {
         return;
       }
+
+      let currentStreak = parseInt(savedStreak || '1', 10);
+
       
       if (!lastDateStr) {
         currentStreak = 1;
@@ -945,29 +965,36 @@ export default function App() {
     }
   };
 
-  // Automate practices on crucial study tabs access
-  useEffect(() => {
-    if (['theory', 'ide', 'arena'].includes(currentView)) {
-      recordPractice();
-    }
-  }, [currentView]);
+  // NOTE: Practice/streak/daily should be recorded ONLY by explicit successful events.
+  // Auto-record on tab/view change leads to double-counting across components and events.
+
 
   // Listen to custom event for successful compiler runs or messaging
   useEffect(() => {
     const handlePracticeCompleted = () => {
-      recordPractice();
+      // Practice completed event is the ONLY source to update streak/daily progress.
+      // Use force on streak record to allow dailyCompleted increment to remain correct,
+      // but recordPractice itself will still guard against duplicate streak writes.
+      recordPractice({ force: false });
       incrementDailyCompleted();
+      setShouldSyncProfile(true);
+
     };
+
     
     const handleAwardXpEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ amount: number }>;
       if (customEvent.detail && typeof customEvent.detail.amount === 'number') {
         const amount = customEvent.detail.amount;
+
+        // Award XP only. Practice completion + streak/daily counting is handled
+        // exclusively by the algolearn_practice_completed event source.
         handleAwardXp(amount, 0);
-        recordPractice();
-        incrementDailyCompleted();
+        setShouldSyncProfile(true);
       }
     };
+
+
 
     window.addEventListener('algolearn_practice_completed', handlePracticeCompleted);
     window.addEventListener('algolearn_award_xp', handleAwardXpEvent as EventListener);
@@ -1912,74 +1939,71 @@ export default function App() {
         </>
       )}
 
-      {/* Mobile Menu Dropdown Panel */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden fixed top-16 inset-x-0 bg-slate-950 border-b border-slate-900 z-30 p-4 space-y-2 flex flex-col text-left">
-          {(userRole === 'admin'
-            ? [{ id: 'admin', label: 'Quản Trị Hệ Thống 🔧', icon: <ShieldCheck className="w-4.5 h-4.5 text-amber-500" /> }]
-            : [
-                { id: 'home', label: 'Trang Chủ', icon: <Brain className="w-4.5 h-4.5 text-indigo-400" /> },
-                { id: 'theory', label: 'Học Lý Thuyết', icon: <BookOpen className="w-4.5 h-4.5 text-indigo-400" /> },
-                { id: 'ide', label: 'Sân Code IDE', icon: <Terminal className="w-4.5 h-4.5 text-indigo-400" /> },
-                { id: 'arena', label: 'Đấu Trường 1v1', icon: <Swords className="w-4.5 h-4.5 text-indigo-400" /> },
-                { id: 'leaderboard', label: 'Bảng Vinh Danh', icon: <Trophy className="w-4.5 h-4.5 text-indigo-400" /> },
-              ]
-          ).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavigate(item.id as any)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition cursor-pointer select-none ${
-                currentView === item.id 
-                  ? 'bg-indigo-650/10 text-indigo-300 border-l-2 border-indigo-500' 
-                  : 'text-gray-400 hover:bg-slate-900/50'
-              }`}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
+      {/* Mobile Menu (Bottom Bar) */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-950/90 backdrop-blur-md border-t border-slate-900">
+        <div className="safe-area-bottom px-3 pb-3 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            {(userRole === 'admin'
+              ? [{ id: 'admin', label: 'Admin', icon: <ShieldCheck className="w-4 h-4 text-amber-400" /> }]
+              : [
+                  { id: 'home', label: 'Home', icon: <Brain className="w-4 h-4 text-indigo-400" /> },
+                  { id: 'theory', label: 'Theory', icon: <BookOpen className="w-4 h-4 text-indigo-400" /> },
+                  { id: 'ide', label: 'IDE', icon: <Terminal className="w-4 h-4 text-indigo-400" /> },
+                  { id: 'arena', label: 'Arena', icon: <Swords className="w-4 h-4 text-indigo-400" /> },
+                  { id: 'leaderboard', label: 'Top', icon: <Trophy className="w-4 h-4 text-indigo-400" /> },
+                ]
+            ).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavigate(item.id as any)}
+                className={`flex-1 flex flex-col items-center justify-center py-2 rounded-2xl border transition cursor-pointer select-none ${
+                  currentView === item.id
+                    ? 'bg-indigo-650/20 border-indigo-500/40'
+                    : 'bg-slate-900/30 border-slate-900/60 hover:bg-slate-900/50'
+                }`}
+              >
+                {item.icon}
+                <span className="text-[9px] font-extrabold uppercase tracking-wider mt-1 text-gray-400">
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
 
-          {/* Mobile Register & Login Controls Drawer */}
-          <div className="border-t border-slate-900 pt-3 mt-1 select-none">
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setIsQuickNotesOpen(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/15 transition cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-indigo-300" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-200">Notes</span>
+            </button>
+
             {currentUser ? (
-              <div className="space-y-3 p-1">
-                <div className="flex items-center space-x-2.5">
-                  <img 
-                    src={currentUser.avatar} 
-                    alt={currentUser.name} 
-                    className="w-10 h-10 rounded-xl object-cover border-2 border-indigo-500"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="text-left flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white truncate leading-none">{currentUser.name}</p>
-                    <p className="text-[10px] text-gray-500 truncate mt-1">{currentUser.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full bg-slate-900 hover:bg-slate-850 p-2 text-rose-400 text-xs font-bold rounded-xl flex items-center justify-center space-x-1.5 active:scale-95 transition cursor-pointer border border-rose-500/10"
-                >
-                  <span>🚪</span>
-                  <span>Đăng xuất Tài khoản</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleLogout()}
+                className="w-[86px] flex items-center justify-center py-2 rounded-2xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/15 transition cursor-pointer"
+              >
+                <LogOut className="w-4 h-4 text-rose-300" />
+              </button>
             ) : (
               <button
-                onClick={() => {
-                  setIsAuthModalOpen(true);
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full bg-indigo-650 hover:bg-indigo-550 p-3 text-white text-xs font-bold rounded-xl flex items-center justify-center space-x-1.5 active:scale-95 transition cursor-pointer hover-shake"
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="w-[86px] flex items-center justify-center py-2 rounded-2xl bg-indigo-650/20 border border-indigo-500/30 hover:bg-indigo-650/25 transition cursor-pointer"
               >
                 <LogIn className="w-4 h-4 text-indigo-200" />
-                <span>ĐĂNG NHẬP / ĐĂNG KÝ HỌC VIÊN</span>
               </button>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Mobile menu open dropdown no longer used (bottom bar handles navigation) */}
+      {mobileMenuOpen && (
+        <div className="hidden" aria-hidden="true" />
       )}
 
       {/* Main viewport Container screens */}
