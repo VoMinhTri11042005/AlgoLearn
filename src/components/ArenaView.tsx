@@ -42,6 +42,7 @@ class Solution:
   const [activeSabotage, setActiveSabotage] = useState<string | null>(null);
   const [showAiHint, setShowAiHint] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const hasDispatchedPracticeRef = React.useRef(false);
   const [resultsLogs, setResultsLogs] = useState<string[]>([]);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
@@ -85,6 +86,9 @@ class Solution:
   };
 
   const handleSubmit = () => {
+    hasDispatchedPracticeRef.current = false;
+    // Prevent duplicate submit triggers (double click / rerender race)
+    if (hasSubmitted || isEvaluating) return;
     playAudioCue('click');
     setIsEvaluating(true);
     setResultsLogs([
@@ -109,7 +113,9 @@ class Solution:
       // Transition to final result shortly
       // If we used speed boost or optimized, let's trigger VICTORY. Otherwise, if we took too long, maybe defeat? Let's give Victory as default or let the user choose!
       setTimeout(() => {
-        // Prevent duplicate practice completion events (streak/daily logic lives in App.tsx)
+        // Dispatch only once per match (App.tsx has anti-double-count, but keep this extra guard too)
+        if (hasDispatchedPracticeRef.current) return;
+        hasDispatchedPracticeRef.current = true;
         window.dispatchEvent(new CustomEvent('algolearn_practice_completed', { detail: { source: 'arena' } }));
         playAudioCue('goal');
         onOpenResult('victory');

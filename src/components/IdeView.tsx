@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Code, Terminal, Sparkles, RefreshCw, ChevronRight, CheckCircle2, 
@@ -39,6 +39,7 @@ export default function IdeView({ onNavigate }: IdeViewProps) {
   const [compileOutput, setCompileOutput] = useState<string[]>([]);
   const [testcasesRun, setTestcasesRun] = useState<TestcaseResult[]>([]);
   const [hasRun, setHasRun] = useState(false);
+  const hasDispatchedPracticeRef = useRef(false);
 
   // Files contents state
   const [files, setFiles] = useState<CodeFile[]>([
@@ -298,6 +299,7 @@ def quick_sort(arr, low, high):
   const activeStep = visualSteps[currentStepIdx];
 
   const handleRunCode = () => {
+    hasDispatchedPracticeRef.current = false;
     setIsCompiling(true);
     setCompileOutput([
       "[SYSTEM] Đang khởi động trình biên dịch G++ C++ v13...",
@@ -325,10 +327,14 @@ def quick_sort(arr, low, high):
         { passed: true, input: "[5, 4, 3, 2, 1]", expected: "1 2 3 4 5", actual: "1 2 3 4 5", runtime: "0.08 ms" },
         { passed: true, input: "[42]", expected: "42", actual: "42", runtime: "0.02 ms" }
       ]);
-      setIsCompiling(false);
+setIsCompiling(false);
       setHasRun(true);
       // Prevent duplicate practice completion events (streak/daily logic lives in App.tsx)
-      window.dispatchEvent(new CustomEvent('algolearn_practice_completed', { detail: { source: 'ide' } }));
+      // Extra guard: only dispatch once per successful run.
+      if (!hasDispatchedPracticeRef.current) {
+        window.dispatchEvent(new CustomEvent('algolearn_practice_completed', { detail: { source: 'ide' } }));
+        hasDispatchedPracticeRef.current = true;
+      }
     }, 1500);
   };
 

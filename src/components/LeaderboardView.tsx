@@ -45,7 +45,11 @@ export default function LeaderboardView({
   const [filterType, setFilterType] = useState<'all' | 'weekly' | 'schools'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
+  const [dailyLeaders, setDailyLeaders] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dailyLoading, setDailyLoading] = useState(true);
+
+
 
   React.useEffect(() => {
     let active = true;
@@ -63,6 +67,30 @@ export default function LeaderboardView({
       });
     return () => { active = false; };
   }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    const date = new Date().toISOString().slice(0, 10);
+    setDailyLoading(true);
+
+    fetch(`/api/leaderboard/daily?date=${encodeURIComponent(date)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (active && Array.isArray(data)) {
+          setDailyLeaders(data);
+          setDailyLoading(false);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load daily leaders:", err);
+        setDailyLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
 
   // Fallback default list if database is still loading or empty
   const defaultLeaders: LeaderboardEntry[] = [
@@ -101,10 +129,18 @@ export default function LeaderboardView({
     return matchesQuery;
   });
 
-  // Calculate top 3 dynamically
-  const top1User = mappedLeadersList.find(l => l.rank === 1) || defaultLeaders[0];
-  const top2User = mappedLeadersList.find(l => l.rank === 2) || defaultLeaders[1];
-  const top3User = mappedLeadersList.find(l => l.rank === 3) || defaultLeaders[2];
+  // Calculate top 3 dynamically (DAILY)
+  const dailyFallback: LeaderboardEntry[] = [
+    { rank: 1, name: "Felix Nguyễn", school: "Đại học Bách Khoa Hà Nội (HUST)", xp: dailyCompleted, solved: dailyCompleted, avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80", badge: "Đại Cao Thủ" },
+    { rank: 2, name: "Sarah Trần", school: "ĐH Công nghệ thông tin - ĐHQG-HCM", xp: Math.max(0, dailyCompleted - 1), solved: Math.max(0, dailyCompleted - 1), avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80", badge: "Cao Thủ" },
+    { rank: 3, name: "Alex Lê", school: "ĐH Công nghệ - ĐHQGHN (UET)", xp: Math.max(0, dailyCompleted - 2), solved: Math.max(0, dailyCompleted - 2), avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80", badge: "Trưởng lão thuật" },
+  ];
+
+  const dailyList = dailyLeaders && dailyLeaders.length > 0 ? dailyLeaders : dailyFallback;
+  const top1User = dailyList.find(l => l.rank === 1) || dailyFallback[0];
+  const top2User = dailyList.find(l => l.rank === 2) || dailyFallback[1];
+  const top3User = dailyList.find(l => l.rank === 3) || dailyFallback[2];
+
 
   // Self static rank finder
   const selfEntry = mappedLeadersList.find(l => l.isSelf);
@@ -148,13 +184,14 @@ export default function LeaderboardView({
         {/* TOP 3 PODIUM HERO GRAPHICS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 relative items-end">
           
-          {/* Rank 2 (Silver) */}
+          {/* Rank 2 (Silver) - DAILY */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-6 flex flex-col items-center text-center order-2 md:order-1 relative group mt-8"
           >
+
             {/* Rank badge */}
             <div className="absolute top-4 left-4 text-xs font-mono font-bold text-slate-400 bg-slate-950 px-3 py-1 rounded-full border border-slate-800">
               RANK 2

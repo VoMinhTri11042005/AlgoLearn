@@ -785,6 +785,7 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
     if (isAllCorrect) {
       setQuizStatus('correct');
       playAudioCue('success');
+// Award XP only (no streak/daily increment)
       const event = new CustomEvent('algolearn_award_xp', { detail: { amount: 50 } });
       window.dispatchEvent(event);
     } else {

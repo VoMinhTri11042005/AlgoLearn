@@ -1,30 +1,28 @@
-# TODO - Fix lỗi logic & nghiệp vụ
+# TODO - Nâng cấp AlgoLearn (UI/UX + hiệu năng + bảo mật + tính năng)
 
-## Bước 1: Khoanh vùng lỗi & chuẩn hoá đề xuất fix
-- Xác định chính xác đường ghi nhận practice/streak/dailyCompleted trong App.tsx + event algolearn_practice_completed.
+## Bước 1: Lập API & Schema cho “lịch sử daily thật”
+- [ ] Thêm bảng/collection lịch sử daily vào db schema (Postgres + db.json fallback)
+- [ ] Thêm route: `POST /api/daily/practice` hoặc hook vào existing practice event
+- [ ] Thêm route đọc: `GET /api/leaderboard/daily` trả về top N theo completed hôm nay
 
-## Bước 2: Fix double-count streak/daily progress
-- Đã xoá auto recordPractice theo đổi view (App.tsx).
-- Đã thêm guard chống double-streak khi nhận event.
-- Đã thêm guard chống double-increment dailyCompleted.
+## Bước 2: Gắn ghi nhận daily thật từ phía server
+- [ ] Khi nhận practice completed event (đang dispatch custom event client), server update daily_history cho userId+today
+- [ ] Đảm bảo anti-double-count theo (userId, date)
 
+## Bước 3: UI hiển thị daily leaderboard thật
+- [ ] Sửa block “TOP NGƯỜI HỌC HÔM NAY” trong `src/App.tsx` dùng API mới (không mock)
+- [ ] Nếu cần, thêm prop truyền vào `LeaderboardView`/component mới để giữ code sạch
 
-## Bước 3: Chuẩn hoá dữ liệu XP/solved/streak
-- Sau login: dùng DB (GET users/current?) làm nguồn authoritative.
-- Tránh ghi đè localStorage state khi chưa confirm từ server.
+## Bước 4: Bảo mật endpoints admin
+- [ ] Thêm `requireAdmin` cho các route syllabus: `POST /api/syllabus`, `POST /api/syllabus/reset`, `POST /api/syllabus/active`
 
-## Bước 4: Syllabus active/progress đồng bộ
-- Khi có Postgres: không dùng localStorage làm source; chỉ dùng server response.
-- Đảm bảo TheoryView/HomeView không ghi localStorage algolearn_syllabus mâu thuẫn.
+## Bước 5: Hiệu năng front-end
+- [ ] `HomeView.tsx`: memo hóa search results để tránh tính lại nhiều lần
+- [ ] `LeaderboardView.tsx`: memo hóa computed lists
+- [ ] `TheoryView.tsx`: memo hóa recommendation/filtered syllabus
 
-## Bước 5: Bảo mật & Authorization backend
-- Hash password (bcrypt hoặc bcryptjs) và so sánh hash.
-- Thêm middleware auth (token/session) và enforce admin rights cho các endpoint admin.
-
-## Bước 6: Sửa isSelf/role hiển thị leaderboard
-- Xác định self bằng user id từ server/response, không dựa vào name.
-
-## Bước 7: Chạy lint/typecheck
-- npm run lint
-- npm run build (nếu cần)
+## Bước 6: Kiểm thử & Build
+- [ ] `npm run lint`
+- [ ] `npm run build`
+- [ ] Smoke test: daily leaderboard + admin permissions
 

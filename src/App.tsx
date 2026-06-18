@@ -883,11 +883,26 @@ export default function App() {
 
       setDailyCompleted((prev) => {
         const nextCompleted = prev + 1;
+
         localStorage.setItem('algolearn_daily_completed_date', todayStr);
         localStorage.setItem('algolearn_daily_completed_count', String(nextCompleted));
         updateCompletedHistory(todayStr, nextCompleted);
 
-        
+        // Persist daily_history snapshot đúng với nextCompleted (tránh race condition)
+        if (currentUser?.id) {
+          fetch('/api/leaderboard/daily/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: currentUser.id,
+              date: todayStr,
+              completed: nextCompleted,
+            }),
+          }).catch(() => {
+            // Non-blocking
+          });
+        }
+
         // Show celebration toast if they reach their target exactly!
         if (nextCompleted === dailyGoal) {
           setShowDailyGoalCelebration(true);
@@ -897,6 +912,7 @@ export default function App() {
         } else {
           playAudioCue('success');
         }
+
         return nextCompleted;
       });
     } catch (e) {
@@ -971,17 +987,28 @@ export default function App() {
 
   useEffect(() => {
     const handlePracticeCompleted = () => {
+      // IMPORTANT: streak/daily should be counted only when user is authenticated.
+      // This guarantees each userId has exactly 1 daily increment for the day.
+      if (!currentUser?.id) return;
+
       const todayStr = getLocalDateString(new Date());
-      const userId = currentUser?.id || 'guest';
+      const userId = currentUser.id;
       const lastKey = `algolearn_last_daily_practice_event_${userId}_${todayStr}`;
 
       if (localStorage.getItem(lastKey) === 'done') return;
 
       recordPractice({ force: false });
+
+      // Update daily counter
       incrementDailyCompleted();
       localStorage.setItem(lastKey, 'done');
+
+
+
+
       setShouldSyncProfile(true);
     };
+
 
     const handleAwardXpEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ amount: number }>;

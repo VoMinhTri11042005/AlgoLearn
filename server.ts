@@ -25,7 +25,19 @@ dotenv.config();
 
 const DB_FILE = path.join(process.cwd(), "db.json");
 
+interface DailyHistoryItem {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_school?: string;
+  user_avatar?: string;
+  date: string; // YYYY-MM-DD
+  completed: number;
+  createdAt: string; // ISO
+}
+
 interface DBUser {
+
   id: string;
   name: string;
   email: string;
@@ -359,12 +371,28 @@ async function connectPostgres(connectionString?: string): Promise<boolean> {
         ALTER TABLE syllabus ADD COLUMN IF NOT EXISTS topic VARCHAR(255) DEFAULT '';
         ALTER TABLE syllabus ADD COLUMN IF NOT EXISTS markdown_content TEXT DEFAULT '';
         ALTER TABLE syllabus ADD COLUMN IF NOT EXISTS code_snippet TEXT DEFAULT '';
+
+        CREATE TABLE IF NOT EXISTS daily_history (
+          id VARCHAR(100) PRIMARY KEY,
+          user_id VARCHAR(100) NOT NULL,
+          user_name VARCHAR(255) NOT NULL,
+          user_school VARCHAR(255),
+          user_avatar VARCHAR(500),
+          "date" VARCHAR(10) NOT NULL,
+          completed INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          UNIQUE (user_id, "date")
+        );
+
+        CREATE INDEX IF NOT EXISTS daily_history_date_idx ON daily_history ("date");
+        CREATE INDEX IF NOT EXISTS daily_history_user_idx ON daily_history (user_id);
       `);
     } catch (migrationsErr: any) {
       console.warn("Could not execute inline ALTER TABLE syllabus migrations (might be due to restricted public schema permissions or columns already exist):", migrationsErr.message || migrationsErr);
     }
 
     // Bootstrap Users Seeding + ensure bcrypt hashes (rehash plaintext seeds if needed)
+
     try {
       const userCountRes = await client.query("SELECT COUNT(*) FROM users");
       if (parseInt(userCountRes.rows[0].count, 10) === 0) {
@@ -1077,13 +1105,175 @@ async function startServer() {
     }
   });
 
+  // API Route - Record Daily leaderboard (completed lessons count)
+  // POST /api/leaderboard/daily/record { userId, date?: YYYY-MM-DD, completed: number }
+  app.post("/api/leaderboard/daily/record", requireAuth, async (req, res) => {
+    const { userId, completed } = req.body || {};
+    const dateRaw = typeof req.body?.date === 'string' ? req.body.date : undefined;
+
+    if (!userId || typeof completed !== 'number') {
+      return res.status(400).json({ error: "userId and completed are required" });
+    }
+
+    const date = dateRaw || new Date().toISOString().slice(0, 10);
+
+    // Anti-cheat: if userId doesn't match session userId -> forbid
+    if (req.session?.userId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const completedSafe = Math.max(0, Math.floor(completed));
+
+    if (usePostgres && dbPool) {
+      try {
+        const pgRes = await dbPool.query(
+          `INSERT INTO daily_history (id, user_id, user_name, user_school, user_avatar, "date", completed)
+           SELECT $1, u.id, u.name, u.school, u.avatar, $2, $3
+           FROM users u
+           WHERE u.id = $4
+           ON CONFLICT (user_id, "date")
+           DO UPDATE SET completed = EXCLUDED.completed, user_name = EXCLUDED.user_name, user_school = EXCLUDED.user_school, user_avatar = EXCLUDED.user_avatar`,
+          [
+            `dh_${userId}_${date}_${Date.now()}`,
+            date,
+            completedSafe,
+            userId,
+          ]
+        );
+
+        return res.json({ status: 'success' });
+      } catch (e) {
+        console.error('PG record daily_history error:', e);
+        return res.status(500).json({ error: 'Failed to record daily history' });
+      }
+    }
+
+    // Local db.json path
+    const currentDbAny = initDB() as any;
+    if (!Array.isArray(currentDbAny.daily_history)) currentDbAny.daily_history = [];
+
+    const existingIdx = currentDbAny.daily_history.findIndex((it: any) => it.user_id === userId && it.date === date);
+
+    // Find user info for snapshot
+    const user = currentDbAny.users?.find((u: any) => u.id === userId);
+
+    const item = {
+      id: `dh_${userId}_${date}_${Date.now()}`,
+      user_id: userId,
+      user_name: user?.name || 'Unknown',
+      user_school: user?.school || '',
+      user_avatar: user?.avatar || '',
+      date,
+      completed: completedSafe,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (existingIdx >= 0) {
+      currentDbAny.daily_history[existingIdx] = { ...currentDbAny.daily_history[existingIdx], ...item };
+    } else {
+      currentDbAny.daily_history.push(item);
+    }
+
+    saveDB(currentDbAny);
+    return res.json({ status: 'success' });
+  });
+
+  // API Route - Daily Leaderboard compilation
+
+  // GET /api/leaderboard/daily?date=YYYY-MM-DD
+  app.get("/api/leaderboard/daily", async (req, res) => {
+    const qDateRaw = typeof req.query.date === 'string' ? req.query.date : undefined;
+    const date = qDateRaw || new Date().toISOString().slice(0, 10);
+
+    // Postgres path
+    if (usePostgres && dbPool) {
+      try {
+        const pgRes = await dbPool.query(
+          `SELECT user_id, user_name, user_school, user_avatar, completed
+           FROM daily_history
+           WHERE "date" = $1
+           ORDER BY completed DESC, user_name ASC
+           LIMIT 100`,
+          [date]
+        );
+
+        const rows = pgRes.rows as any[];
+        const entries = rows.map((r, idx) => {
+          const completed = Number(r.completed || 0);
+
+          let badge = "Hành giả tập sự";
+          if (completed >= 6) badge = "Đại Cao Thủ";
+          else if (completed >= 4) badge = "Cao Thủ";
+          else if (completed >= 2) badge = "Trưởng lão thuật";
+
+          return {
+            id: r.user_id,
+            rank: idx + 1,
+            name: r.user_name,
+            school: r.user_school,
+            xp: completed, // UI daily only needs completed; keep xp field for compatibility
+            solved: completed,
+            streak: 0,
+            avatar: r.user_avatar,
+            badge,
+            isAdmin: false
+          };
+        });
+
+        return res.json(entries);
+      } catch (e) {
+        console.error("PG daily leaderboard error, fallback to local:", e);
+      }
+    }
+
+    // Local db.json path
+    const currentDbAny = initDB() as any;
+    const daily = Array.isArray(currentDbAny.daily_history) ? currentDbAny.daily_history : [];
+
+    const filtered = daily
+      .filter((it: any) => it && it.date === date)
+      .map((it: any) => ({
+        id: it.user_id,
+        user_id: it.user_id,
+        name: it.user_name,
+        school: it.user_school,
+        avatar: it.user_avatar,
+        completed: Number(it.completed || 0),
+      }));
+
+    filtered.sort((a: any, b: any) => b.completed - a.completed || String(a.name).localeCompare(String(b.name)));
+
+    const entries = filtered.slice(0, 100).map((u: any, idx: number) => {
+      const completed = Number(u.completed || 0);
+      let badge = "Hành giả tập sự";
+      if (completed >= 6) badge = "Đại Cao Thủ";
+      else if (completed >= 4) badge = "Cao Thủ";
+      else if (completed >= 2) badge = "Trưởng lão thuật";
+
+      return {
+        id: u.id,
+        rank: idx + 1,
+        name: u.name,
+        school: u.school,
+        xp: completed,
+        solved: completed,
+        streak: 0,
+        avatar: u.avatar,
+        badge,
+        isAdmin: false
+      };
+    });
+
+    res.json(entries);
+  });
+
   // API Route - Dynamic Leaderboard compilation
   app.get("/api/leaderboard", async (req, res) => {
     const users = await getDBUsers();
-    
+
     // Sort all users by XP descending
     const sortedUsers = [...users].sort((a, b) => b.xp - a.xp);
-    
+
     // Build rankings list
     const entries = sortedUsers.map((u, index) => {
       // Establish dynamic visual badge title
@@ -1108,6 +1298,7 @@ async function startServer() {
 
     res.json(entries);
   });
+
 
   // API routes first
   app.post("/api/gemini/chat", async (req, res) => {
