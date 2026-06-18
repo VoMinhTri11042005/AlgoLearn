@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+// gif.js ships without full TS typings; we keep runtime import and cast later.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import GIF from 'gif.js';
+
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import HomeView from './components/HomeView';
@@ -486,8 +490,11 @@ export default function App() {
   const [showDailyGoalDetails, setShowDailyGoalDetails] = useState(false);
   const [showDailyGoalCelebration, setShowDailyGoalCelebration] = useState(false);
   const [shareImageSrc, setShareImageSrc] = useState<string | null>(null);
+  const [shareGifSrc, setShareGifSrc] = useState<string | null>(null);
+
   const [showSharePreview, setShowSharePreview] = useState(false);
   const [copyStatus, setCopyStatus] = useState(false);
+
 
   // States for Learning Reminders
   const [remindersEnabled, setRemindersEnabled] = useState<boolean>(() => {
@@ -1083,9 +1090,20 @@ export default function App() {
 
   const handleGenerateShareCard = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 800;
+
+    // Base canvas for the share design
+    const BASE_W = 800;
+    const BASE_H = 800;
+
+    // For GIF export (performance): downscale frames then encode.
+    // If device is slow, the GIF will still be lightweight.
+    const GIF_W = 512;
+    const GIF_H = 512;
+
+    canvas.width = BASE_W;
+    canvas.height = BASE_H;
     const ctx = canvas.getContext('2d');
+
     if (!ctx) return;
 
     // Helper to draw rounded rectangle
@@ -1104,7 +1122,8 @@ export default function App() {
     };
 
     // 1. Draw Linear Background Gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, 800, 800);
+    const bgGrad = ctx.createLinearGradient(0, 0, BASE_W, BASE_H);
+
     bgGrad.addColorStop(0, '#090d16'); // Dark cosmic slate
     bgGrad.addColorStop(0.5, '#0b1329'); // Deep twilight indigo
     bgGrad.addColorStop(1, '#1e113a'); // Cyber violet accent
@@ -1243,6 +1262,7 @@ export default function App() {
     // Draw progress bar track
     const barX = boxX + 40;
     const barY = boxY + 195;
+
     const barW = boxW - 80;
     const barH = 12;
 
@@ -1295,12 +1315,81 @@ export default function App() {
 
     // Export URL as state and show preview
     try {
+      // PNG (keep current fast path)
       const url = canvas.toDataURL('image/png');
       setShareImageSrc(url);
-      setShowSharePreview(true);
+
+      // GIF (~8–12 frames lightweight): create a short “pulse/zoom” animation by
+      // drawing the same design multiple times with subtle scale/offset.
+      // We downscale to GIF_W/GIF_H for performance.
+      const gifCanvas = document.createElement('canvas');
+      gifCanvas.width = GIF_W;
+      gifCanvas.height = GIF_H;
+      const gifCtx = gifCanvas.getContext('2d');
+
+      if (gifCtx) {
+        const baseImg = new Image();
+        // Use PNG data as source frames (ensures the GIF matches the exact design)
+        baseImg.src = url;
+
+        const frames = 10; // ~8–12
+        const frameDelayMs = 60; // fast, lightweight
+
+        baseImg.onload = () => {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const encoder = new (GIF as any)({
+              workers: 2,
+              quality: 6,
+              width: GIF_W,
+              height: GIF_H,
+              transparent: null,
+              repeat: 0,
+            });
+
+            for (let i = 0; i < frames; i++) {
+              // Pulse: scale up/down smoothly
+              const t = i / (frames - 1);
+              const pulse = 1 + Math.sin(t * Math.PI) * 0.035; // ~±3.5%
+              const dx = (GIF_W * (1 - 1 / pulse)) / 2;
+              const dy = (GIF_H * (1 - 1 / pulse)) / 2;
+
+              gifCtx.clearRect(0, 0, GIF_W, GIF_H);
+              gifCtx.drawImage(
+                baseImg,
+                0,
+                0,
+                800,
+                800,
+                dx,
+                dy,
+                GIF_W / pulse,
+                GIF_H / pulse
+              );
+
+              encoder.addFrame(gifCtx, { copy: true, delay: frameDelayMs });
+            }
+
+            encoder.on('finished', (blob: Blob) => {
+              const gifUrl = URL.createObjectURL(blob);
+              setShareGifSrc(gifUrl);
+              setShowSharePreview(true);
+            });
+
+            encoder.render();
+          } catch (e) {
+            console.error('Failed to generate sharing GIF:', e);
+            setShowSharePreview(true);
+          }
+        };
+      } else {
+        setShowSharePreview(true);
+      }
     } catch (e) {
       console.error('Failed to generate sharing image:', e);
+      setShowSharePreview(true);
     }
+
   };
 
   const handleCopyShareText = () => {
@@ -3228,7 +3317,21 @@ export default function App() {
                 <p className="text-[10px] text-gray-400 font-medium font-sans">Lan toả chuỗi nhiệt luyện thuật toán cực xịn</p>
               </div>
 
-              {shareImageSrc ? (
+              {shareGifSrc ? (
+                <div className="relative group max-w-sm mx-auto overflow-hidden rounded-2xl border border-indigo-500/25 shadow-xl shadow-indigo-950/40">
+                  <img 
+                    src={shareGifSrc} 
+                    alt="AlgoLearn Share Card (GIF)" 
+                    className="w-full h-auto object-contain rounded-2xl"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-4 text-center pointer-events-none">
+                    <p className="text-white text-[10px] font-bold font-sans bg-slate-900/90 border border-slate-800 px-3 py-2 rounded-xl">
+                      💡 Nhấn giữ hình ảnh để tải về trên điện thoại di động!
+                    </p>
+                  </div>
+                </div>
+              ) : shareImageSrc ? (
                 <div className="relative group max-w-sm mx-auto overflow-hidden rounded-2xl border border-indigo-500/25 shadow-xl shadow-indigo-950/40">
                   <img 
                     src={shareImageSrc} 
@@ -3236,6 +3339,7 @@ export default function App() {
                     className="w-full h-auto object-contain rounded-2xl"
                     referrerPolicy="no-referrer"
                   />
+
                   <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-4 text-center pointer-events-none">
                     <p className="text-white text-[10px] font-bold font-sans bg-slate-900/90 border border-slate-800 px-3 py-2 rounded-xl">
                       💡 Nhấn giữ hình ảnh để tải về trên điện thoại di động!
@@ -3256,15 +3360,34 @@ export default function App() {
                     className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border border-emerald-500 shadow-lg shadow-emerald-950/20 text-center"
                   >
                     <Download className="w-3.5 h-3.5 shrink-0" />
-                    <span>Lưu Hình Ảnh</span>
+                    <span>Lưu PNG</span>
                   </a>
                 )}
+
+                {shareGifSrc && (
+                  <a
+                    href={shareGifSrc}
+                    download={`AlgoLearn_Chuoi_Lien_Tuc_${streak}_Ngay.gif`}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-550 text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border border-indigo-500 shadow-lg shadow-indigo-950/20 text-center"
+                    title="Tải GIF ngắn (8–12 frame)"
+                  >
+                    <Download className="w-3.5 h-3.5 shrink-0" />
+                    <span>Lưu GIF</span>
+                  </a>
+                )}
+
+                {!shareGifSrc && !shareImageSrc && (
+                  <div className="flex-1 py-2.5 bg-slate-900/40 border border-slate-800 rounded-xl text-[11px] text-gray-500 font-extrabold uppercase">
+                    Đang tạo...
+                  </div>
+                )}
+
                 
                 <button
+
                   type="button"
                   onClick={handleCopyShareText}
-                  className="flex-1 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/15 text-indigo-300 font-extrabold text-[11px] uppercase tracking-wider rounded-xl border border-indigo-500/25 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-                >
+                  className="flex-1 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/15 text-indigo-300 font-extrabold text-[11px] uppercase tracking-wider rounded-xl border border-indigo-500/25 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5">
                   {copyStatus ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
