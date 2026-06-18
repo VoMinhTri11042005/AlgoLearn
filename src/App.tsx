@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-// gif.js ships without full TS typings; we keep runtime import and cast later.
+// gif.js ships without full TS typings; load it lazily to avoid worker URL issues.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-import GIF from 'gif.js';
+let GIF: any;
 
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -1326,15 +1326,23 @@ export default function App() {
       gifCanvas.height = GIF_H;
       const gifCtx = gifCanvas.getContext('2d');
 
+      // IMPORTANT: gif.js worker build is failing under Vite (gif.worker.js returns HTML => "Unexpected token '<'").
+      // We fallback to PNG-only to avoid the worker entirely.
+      // (GIF can be re-enabled later with a proper workerUrl fix.)
       if (!gifCtx) {
         setShowSharePreview(true);
       } else {
+        setShareGifSrc(null);
+        setShowSharePreview(true);
+        return;
+
         const frames = 10; // ~8–12
         const frameDelayMs = 60; // fast, lightweight
 
         const decodeAndEncode = async () => {
           const baseImg = new Image();
           baseImg.src = url;
+
 
           try {
             // Prefer decode() when available (more reliable than onload)
@@ -1350,8 +1358,18 @@ export default function App() {
             }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // NOTE: workers: 2 can fail in some production builds due to worker URL resolving
+            // (browser tries to load `gif.worker.js` but receives HTML => "Unexpected token '<'"),
+            // so we force workers off for reliability.
+            // Lazy-load gif.js right before use (prevents worker URL from being resolved at startup)
+            if (!GIF) {
+              const mod = await import('gif.js');
+              GIF = mod.default ?? mod;
+            }
+
             const encoder = new (GIF as any)({
-              workers: 2,
+              workers: 0,
+
               quality: 6,
               width: GIF_W,
               height: GIF_H,
