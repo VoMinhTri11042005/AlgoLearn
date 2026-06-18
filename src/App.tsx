@@ -1319,24 +1319,36 @@ export default function App() {
       const url = canvas.toDataURL('image/png');
       setShareImageSrc(url);
 
-      // GIF (~8–12 frames lightweight): create a short “pulse/zoom” animation by
-      // drawing the same design multiple times with subtle scale/offset.
-      // We downscale to GIF_W/GIF_H for performance.
+      // GIF (~8–12 frames): ensure reliability by decoding the PNG data
+      // before feeding it into gif.js.
       const gifCanvas = document.createElement('canvas');
       gifCanvas.width = GIF_W;
       gifCanvas.height = GIF_H;
       const gifCtx = gifCanvas.getContext('2d');
 
-      if (gifCtx) {
-        const baseImg = new Image();
-        // Use PNG data as source frames (ensures the GIF matches the exact design)
-        baseImg.src = url;
-
+      if (!gifCtx) {
+        setShowSharePreview(true);
+      } else {
         const frames = 10; // ~8–12
         const frameDelayMs = 60; // fast, lightweight
 
-        baseImg.onload = () => {
+        const decodeAndEncode = async () => {
+          const baseImg = new Image();
+          baseImg.src = url;
+
           try {
+            // Prefer decode() when available (more reliable than onload)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const anyImg = baseImg as any;
+            if (typeof anyImg.decode === 'function') {
+              await anyImg.decode();
+            } else {
+              await new Promise<void>((resolve, reject) => {
+                baseImg.onload = () => resolve();
+                baseImg.onerror = () => reject(new Error('Failed to decode share PNG'));
+              });
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const encoder = new (GIF as any)({
               workers: 2,
@@ -1348,7 +1360,6 @@ export default function App() {
             });
 
             for (let i = 0; i < frames; i++) {
-              // Pulse: scale up/down smoothly
               const t = i / (frames - 1);
               const pulse = 1 + Math.sin(t * Math.PI) * 0.035; // ~±3.5%
               const dx = (GIF_W * (1 - 1 / pulse)) / 2;
@@ -1376,14 +1387,18 @@ export default function App() {
               setShowSharePreview(true);
             });
 
+            encoder.on('abort', () => {
+              setShowSharePreview(true);
+            });
+
             encoder.render();
-          } catch (e) {
-            console.error('Failed to generate sharing GIF:', e);
+          } catch (err) {
+            console.error('Failed to generate sharing GIF:', err);
             setShowSharePreview(true);
           }
         };
-      } else {
-        setShowSharePreview(true);
+
+        void decodeAndEncode();
       }
     } catch (e) {
       console.error('Failed to generate sharing image:', e);
