@@ -207,6 +207,7 @@ export default function LandingGate({ onAuthSuccess }: LandingGateProps) {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email: emailToSubmit, password: passwordToSubmit })
       });
 
@@ -259,6 +260,7 @@ export default function LandingGate({ onAuthSuccess }: LandingGateProps) {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: regName.trim(),
           email: regEmail.trim(),

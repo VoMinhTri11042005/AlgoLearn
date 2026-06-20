@@ -1190,6 +1190,20 @@ async function startServer() {
     }
   });
 
+  // API Route - User Auth Status (Get current logged in user from session)
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const users = await getDBUsers();
+    const matchedUser = users.find(u => u.id === req.session.userId);
+    if (matchedUser) {
+      res.json({ user: publicUser(matchedUser) });
+    } else {
+      res.status(404).json({ error: "User not found" });
+    }
+  });
+
   // API Route - Update profile / XP / Streak
   app.post("/api/auth/update-profile", requireAuth, async (req, res) => {
     const { userId, xp, solved, streak } = req.body;

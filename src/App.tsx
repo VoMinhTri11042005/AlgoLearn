@@ -351,6 +351,33 @@ export default function App() {
   const [showStreakAchievement, setShowStreakAchievement] = useState(false);
   const [streakRipples, setStreakRipples] = useState<{ id: number; x: number; y: number }[]>([]);
 
+  // Verify session validity on mount to prevent stale local sessions
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => {
+        if (res.status === 401) {
+          if (localStorage.getItem('algolearn_current_user')) {
+            localStorage.removeItem('algolearn_current_user');
+            setCurrentUser(null);
+          }
+        } else if (res.ok) {
+          return res.json();
+        }
+      })
+      .then((data) => {
+        if (data && data.user) {
+          setCurrentUser(data.user);
+          localStorage.setItem('algolearn_current_user', JSON.stringify(data.user));
+          if (data.user.xp !== undefined) setUserXp(data.user.xp);
+          if (data.user.solved !== undefined) setUserSolved(data.user.solved);
+          if (data.user.streak !== undefined) setStreak(data.user.streak);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to verify session on mount', err);
+      });
+  }, []);
+
   // Sync core auth roles and views dynamically to prevent tampering and provide auto-routing
   useEffect(() => {
     if (!currentUser) {
@@ -415,6 +442,7 @@ export default function App() {
     fetch('/api/auth/update-profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         userId: currentUser.id,
         xp: currentUser.xp,
@@ -900,6 +928,7 @@ export default function App() {
           fetch('/api/leaderboard/daily/record', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
               userId: currentUser.id,
               date: todayStr,
