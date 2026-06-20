@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Swords, ShieldAlert, Zap, Compass, Send, Key, Bug,
@@ -18,6 +18,25 @@ interface ArenaViewProps {
 }
 
 export default function ArenaView({ onNavigate, onOpenResult }: ArenaViewProps) {
+  const [matchId, setMatchId] = useState<string | null>(null);
+  const [queueState, setQueueState] = useState<'idle' | 'queued' | 'running' | 'error'>('idle');
+  const [opponent, setOpponent] = useState<{ id: string; name: string; school: string; avatar: string } | null>(null);
+  const [arenaElo, setArenaElo] = useState<{ player?: number; opponent?: number }>({});
+
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const currentUser = (() => {
+    try {
+      const saved = localStorage.getItem('algolearn_current_user');
+      return saved ? JSON.parse(saved) as { id: string; name: string; school: string; avatar: string } : null;
+    } catch {
+      return null;
+    }
+  })();
+  const currentUserId = currentUser?.id || null;
+
+
   const [timeLeft, setTimeLeft] = useState(892); // 14 minutes 52 seconds
   const [solution, setSolution] = useState(`class TreeNode:
     def __init__(self, val=0, left=None, right=None):
@@ -38,32 +57,22 @@ class Solution:
         
         return root`);
 
-  const [opponentTestcaseProgress, setOpponentTestcaseProgress] = useState(2); // 2/5 tests passed
+  const [opponentTestcaseProgress, setOpponentTestcaseProgress] = useState(0);
+  const hasDispatchedPracticeRef = useRef(false);
   const [activeSabotage, setActiveSabotage] = useState<string | null>(null);
   const [showAiHint, setShowAiHint] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const hasDispatchedPracticeRef = React.useRef(false);
   const [resultsLogs, setResultsLogs] = useState<string[]>([]);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
-  // Tick Timer down
+  // Timer synced from server polling
   useEffect(() => {
+    if (queueState !== 'running') return;
     const timer = setInterval(() => {
       setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  // Opponent trace: dynamically update opponent progress as time flies
-  useEffect(() => {
-    const opponentTimer = setInterval(() => {
-      setOpponentTestcaseProgress(prev => {
-        if (prev < 4) return prev + 1;
-        return prev; // stays at 4 until player submits
-      });
-    }, 15000);
-    return () => clearInterval(opponentTimer);
-  }, []);
+  }, [queueState]);
 
   const formatTime = (seconds: number) => {
     const min = Math.floor(seconds / 60);
@@ -85,64 +94,210 @@ class Solution:
     }
   };
 
-  const handleSubmit = () => {
-    hasDispatchedPracticeRef.current = false;
-    // Prevent duplicate submit triggers (double click / rerender race)
-    if (hasSubmitted || isEvaluating) return;
+  const joinQueue = async () => {
+    if (!currentUserId) {
+      setQueueState('error');
+      setJoinError('Bạn cần đăng nhập để vào đấu trường 1v1.');
+      return;
+    }
+    setIsJoining(true);
+    setJoinError(null);
+    try {
+      const r = await fetch('/api/arena/queue/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId }),
+        credentials: 'include',
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || 'Join queue failed');
+      setMatchId(data.matchId || null);
+      setQueueState(data.matchId || data.status === 'already-in-match' ? 'running' : 'queued');
+    } catch (e: any) {
+      setQueueState('error');
+      setJoinError(e?.message || 'Không thể vào queue');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  useEffect(() => {
+    // Auto join when view mounts
+    joinQueue();
+    return () => {
+      if (!currentUserId) return;
+      fetch('/api/arena/queue/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId }),
+        credentials: 'include',
+      }).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      try {
+        const url = matchId ? `/api/arena/match/${matchId}` : '/api/arena/status';
+        const r = await fetch(url, { method: 'GET', credentials: 'include' });
+        if (!alive) return;
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || 'poll failed');
+
+        if (data.matchId && data.matchId !== matchId) {
+          setMatchId(data.matchId);
+        }
+
+        if (data.status === 'running') {
+          setQueueState('running');
+          if (typeof data.timeLeftSeconds === 'number') {
+            setTimeLeft(data.timeLeftSeconds);
+          }
+          if (data.elo) {
+            setArenaElo(data.elo);
+          }
+          if (data.opponent) {
+            setOpponent({
+              id: data.opponent.id,
+              name: data.opponent.name,
+              school: data.opponent.school,
+              avatar: data.opponent.avatar,
+            });
+          }
+          // Sync opponent progress from server
+          if (data.progress && typeof data.progress.opponent === 'number') {
+            setOpponentTestcaseProgress(data.progress.opponent);
+          }
+        }
+
+        if (data.status === 'queued') {
+          setQueueState('queued');
+        }
+
+        if (data.status === 'finished') {
+          setQueueState('idle');
+          const winnerIsPlayer = data.result?.winnerId === currentUserId;
+          onOpenResult(winnerIsPlayer ? 'victory' : 'defeat');
+        }
+      } catch {
+        // ignore transient errors
+      }
+    };
+
+    const t = setInterval(poll, 2000);
+    poll();
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [matchId, currentUserId, onOpenResult]);
+
+  const handleSubmit = async () => {
+    if (!matchId) return;
+    if (!currentUserId) return;
+
+    if (isEvaluating) return;
     playAudioCue('click');
     setIsEvaluating(true);
     setResultsLogs([
-      "⚙️ Kết nối máy chủ chấm bài Sandbox Server...",
-      "⚙️ Đang chạy thử nghiệm Testcase #1 (Cây nhị phân rỗng) -> PASSED",
-      "⚙️ Đang chạy thử nghiệm Testcase #2 (Cây nhị phân 1 phần tử) -> PASSED",
-      "⚙️ Đang chạy thử nghiệm Testcase #3 (Cây nhị phân hoàn chỉnh cấp 3) -> PASSED"
+      '⚙️ Đang gửi code lên Sandbox Server để chấm bài...',
     ]);
 
-    setTimeout(() => {
+    try {
+      const r = await fetch(`/api/arena/match/${matchId}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ code: solution }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || 'submit failed');
+
+      // Show server sandbox logs
+      if (data.logs && Array.isArray(data.logs)) {
+        setResultsLogs(data.logs);
+      }
+
+      setIsEvaluating(false);
+
+      if (data.status === 'partial') {
+        // Not all tests passed – allow re-submit
+        setHasSubmitted(false);
+        playAudioCue('fail');
+        return;
+      }
+
+      // Full pass (status === 'ok') or match finished
+      setHasSubmitted(true);
+      if (data.eloAfter) {
+        setArenaElo(data.eloAfter);
+      }
+      window.dispatchEvent(new CustomEvent('algolearn_award_xp', {
+        detail: { amount: data.rewardXp || (data.winnerIsPlayer ? 500 : 150) },
+      }));
+      playAudioCue('success');
+      if (!hasDispatchedPracticeRef.current) {
+        window.dispatchEvent(new CustomEvent('algolearn_practice_completed', {
+          detail: { source: 'arena', matchId },
+        }));
+        hasDispatchedPracticeRef.current = true;
+      }
+      onOpenResult(data.winnerIsPlayer ? 'victory' : 'defeat');
+    } catch (e) {
+      setIsEvaluating(false);
       setResultsLogs(prev => [
         ...prev,
-        "⚙️ Đang chạy thử nghiệm Testcase #4 (Cây nhị phân lệch phải)...",
-        "⚙️ Đang chạy thử nghiệm Testcase #5 (Cây có độ sâu lớn m=100) -> PASSED",
-        "✔️ TẤT CẢ 5/5 TESTCASES ĐỀU KHỚP KẾT QUẢ ĐẦU RA!",
-        "=================== THI ĐẤU HOÀN TẤT ==================="
+        '❌ Submit thất bại. Vui lòng thử lại.',
       ]);
-      setIsEvaluating(false);
-      setHasSubmitted(true);
-      playAudioCue('success');
-
-      // Transition to final result shortly
-      // If we used speed boost or optimized, let's trigger VICTORY. Otherwise, if we took too long, maybe defeat? Let's give Victory as default or let the user choose!
-      setTimeout(() => {
-        // Dispatch only once per match (App.tsx has anti-double-count, but keep this extra guard too)
-        if (hasDispatchedPracticeRef.current) return;
-        hasDispatchedPracticeRef.current = true;
-        window.dispatchEvent(new CustomEvent('algolearn_practice_completed', { detail: { source: 'arena' } }));
-        playAudioCue('goal');
-        onOpenResult('victory');
-      }, 3000);
-    }, 2000);
+    }
   };
+
 
   return (
     <div id="arena_layout" className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#07090d] text-gray-200 font-sans flex flex-col">
+
+      {queueState === 'queued' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+          <Swords className="w-12 h-12 text-indigo-400 animate-pulse" />
+          <h2 className="text-xl font-bold text-white">Đang tìm đối thủ...</h2>
+          <p className="text-sm text-gray-500 max-w-md">Hệ thống đang ghép bạn với người chơi khác. Nếu không có ai sau 5 giây, bot sẽ tham gia trận đấu.</p>
+          {joinError && <p className="text-rose-400 text-sm">{joinError}</p>}
+        </div>
+      )}
+
+      {queueState === 'error' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+          <AlertTriangle className="w-12 h-12 text-rose-400" />
+          <h2 className="text-xl font-bold text-white">Không thể vào đấu trường</h2>
+          <p className="text-sm text-gray-500">{joinError || 'Vui lòng đăng nhập và thử lại.'}</p>
+        </div>
+      )}
+
+      {queueState === 'running' && (
+      <>
       
       {/* Competitors Header */}
+
       <div className="bg-[#0b0e14] border-b border-slate-900 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         
         {/* Player side */}
         <div className="flex items-center space-x-3 text-left">
           <img 
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80" 
+            src={currentUser?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80"} 
             alt="Bạn" 
             className="w-10 h-10 rounded-full border-2 border-indigo-500 object-cover"
             referrerPolicy="no-referrer"
           />
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-white">Minh Hoàng (Bạn)</span>
-              <span className="bg-[#4f46e5]/20 text-indigo-300 border border-indigo-500/20 text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase">ỦY VIÊN</span>
+              <span className="font-extrabold text-white">{currentUser?.name || 'Bạn'} (Bạn)</span>
+              <span className="bg-[#4f46e5]/20 text-indigo-300 border border-indigo-500/20 text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase">{arenaElo?.player ? `ELO ${arenaElo.player}` : 'ỦY VIÊN'}</span>
             </div>
-            <p className="text-[10px] text-gray-500 font-mono">My Code Status: 4/5 local cases passed</p>
+            <p className="text-[10px] text-gray-500 font-mono">
+              Elo: {arenaElo.player ?? 1200} | {hasSubmitted ? 'Đã nộp bài' : 'Đang thi đấu'}
+            </p>
           </div>
         </div>
 
@@ -162,17 +317,19 @@ class Solution:
         {/* Rival side */}
         <div className="flex items-center space-x-3 md:flex-row-reverse text-left md:text-right">
           <img 
-            src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80" 
-            alt="An Nguyễn" 
+            src={opponent?.avatar || "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80"} 
+            alt={opponent?.name || 'Đối thủ'} 
             className="w-10 h-10 rounded-full border-2 border-rose-500 object-cover"
             referrerPolicy="no-referrer"
           />
           <div className="md:mr-3">
             <div className="flex items-center md:justify-end space-x-2">
               <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase">ĐỐI THỦ</span>
-              <span className="font-extrabold text-white">An Nguyễn</span>
+              <span className="font-extrabold text-white">{opponent?.name || (queueState === 'queued' ? 'Đang tìm...' : '???')}</span>
             </div>
-            <p className="text-[10px] text-rose-400 font-mono">Đang chạy chấm bài: {opponentTestcaseProgress}/5 passed</p>
+            <p className="text-[10px] text-rose-400 font-mono">
+              Elo: {arenaElo.opponent ?? 1200} | {opponentTestcaseProgress}/5 testcase passed
+            </p>
           </div>
         </div>
       </div>
@@ -402,6 +559,8 @@ class Solution:
         </div>
 
       </div>
+      </>
+      )}
     </div>
   );
 }

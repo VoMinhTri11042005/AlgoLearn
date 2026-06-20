@@ -28,6 +28,7 @@ export interface CodeFile {
 }
 
 export interface LeaderboardEntry {
+  id?: string;
   rank: number;
   name: string;
   school: string;
@@ -36,6 +37,10 @@ export interface LeaderboardEntry {
   avatar: string;
   badge?: string;
   isSelf?: boolean;
+  elo?: number;
+  games?: number;
+  wins?: number;
+  losses?: number;
 }
 
 export interface TestcaseResult {

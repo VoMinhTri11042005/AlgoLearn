@@ -42,11 +42,14 @@ export default function LeaderboardView({
   onManualDecrement,
   currentUser
 }: LeaderboardViewProps) {
+  const [boardMode, setBoardMode] = useState<'xp' | 'arena'>('xp');
   const [filterType, setFilterType] = useState<'all' | 'weekly' | 'schools'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
+  const [arenaLeaders, setArenaLeaders] = useState<LeaderboardEntry[]>([]);
   const [dailyLeaders, setDailyLeaders] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [arenaLoading, setArenaLoading] = useState(true);
   const [dailyLoading, setDailyLoading] = useState(true);
 
 
@@ -65,6 +68,26 @@ export default function LeaderboardView({
         console.error("Failed to load leaders:", err);
         setLoading(false);
       });
+    return () => { active = false; };
+  }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    setArenaLoading(true);
+
+    fetch('/api/arena/leaderboard', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (active && Array.isArray(data)) {
+          setArenaLeaders(data);
+          setArenaLoading(false);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load arena leaders:", err);
+        setArenaLoading(false);
+      });
+
     return () => { active = false; };
   }, []);
 
@@ -105,8 +128,16 @@ export default function LeaderboardView({
 
   const currentLeadersList = (leaders && leaders.length > 0) ? leaders : defaultLeaders;
 
+  const defaultArenaLeaders: LeaderboardEntry[] = [
+    { rank: 1, name: "Felix Nguyễn", school: "Đại học Bách Khoa Hà Nội (HUST)", xp: 1200, solved: 0, avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80", badge: "Trưởng lão thuật", elo: 1200, games: 0, wins: 0, losses: 0 },
+    { rank: 2, name: "Sarah Trần", school: "ĐH Công nghệ thông tin - ĐHQG-HCM", xp: 1200, solved: 0, avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80", badge: "Trưởng lão thuật", elo: 1200, games: 0, wins: 0, losses: 0 },
+  ];
+
+  const currentArenaList = (arenaLeaders && arenaLeaders.length > 0) ? arenaLeaders : defaultArenaLeaders;
+  const activeList = boardMode === 'arena' ? currentArenaList : currentLeadersList;
+
   // Map isSelf dynamically (authoritative by user id)
-  const mappedLeadersList = currentLeadersList.map(leader => {
+  const mappedLeadersList = activeList.map(leader => {
     const isSelf = currentUser ? leader.id === currentUser.id : false;
     return { ...leader, isSelf };
   });
@@ -114,14 +145,15 @@ export default function LeaderboardView({
 
   // Filter list
   const filteredLeaders = mappedLeadersList.filter(leader => {
-    // Exclude the self element from main rank list render so it renders in order but can show in query too
     if (leader.isSelf) return false;
-    
+
     const query = searchQuery.toLowerCase();
     const matchesQuery = leader.name.toLowerCase().includes(query) || leader.school.toLowerCase().includes(query);
-    
+
+    if (boardMode === 'arena') return matchesQuery;
+
     if (filterType === 'weekly') {
-      return matchesQuery && leader.rank <= 5; // Simulating weekly filters
+      return matchesQuery && leader.rank <= 5;
     }
     if (filterType === 'schools') {
       return matchesQuery && (leader.school.includes('HUST') || leader.school.includes('ĐHQG-HCM') || leader.school.includes('ĐHQGHN'));
@@ -142,9 +174,9 @@ export default function LeaderboardView({
   const top3User = dailyList.find(l => l.rank === 3) || dailyFallback[2];
 
 
-  // Self static rank finder
   const selfEntry = mappedLeadersList.find(l => l.isSelf);
-  const userRankIndex = selfEntry ? selfEntry.rank : 14;
+  const userRankIndex = selfEntry ? selfEntry.rank : (boardMode === 'arena' ? '—' : 14);
+  const selfElo = selfEntry?.elo ?? selfEntry?.xp ?? 1200;
 
   return (
     <div id="leaderboard_container" className="min-h-[calc(100vh-4rem)] bg-slate-950 text-gray-200 font-sans flex flex-col pb-36 sm:pb-48">
@@ -157,8 +189,35 @@ export default function LeaderboardView({
               <Trophy className="w-4 h-4 text-amber-400" />
               <span>SẢNH VINH DANH ALGOLEARN</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-white">Bảng xếp hạng Toàn quốc</h1>
-            <p className="text-sm text-gray-500 mt-1">Nơi vinh danh những kỹ sư thuật toán xuất sắc nhất đến từ hơn 50 trường Đại học ngành CNTT.</p>
+            <h1 className="text-3xl font-extrabold text-white">
+              {boardMode === 'arena' ? 'Bảng xếp hạng Arena 1v1' : 'Bảng xếp hạng Toàn quốc'}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {boardMode === 'arena'
+                ? 'Xếp hạng Elo từ các trận đối kháng thuật toán 1v1 trên AlgoLearn Arena.'
+                : 'Nơi vinh danh những kỹ sư thuật toán xuất sắc nhất đến từ hơn 50 trường Đại học ngành CNTT.'}
+            </p>
+          </div>
+
+          {/* Board mode tabs */}
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-900 w-fit">
+            {[
+              { id: 'xp' as const, label: 'BẢNG XP', icon: Trophy },
+              { id: 'arena' as const, label: 'ARENA 1V1 ELO', icon: Swords },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setBoardMode(t.id)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer select-none flex items-center space-x-1.5 ${
+                  boardMode === t.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <t.icon className="w-3.5 h-3.5" />
+                <span>{t.label}</span>
+              </button>
+            ))}
           </div>
 
           {/* Quick simulation sandbox */}
@@ -460,23 +519,30 @@ export default function LeaderboardView({
             
             {/* Main Tabs */}
             <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-900 w-fit">
-              {[
-                { id: 'all', label: 'TẤT CẢ' },
-                { id: 'weekly', label: 'ĐUA TOP TUẦN' },
-                { id: 'schools', label: 'ĐẠI HỌC TOP' }
-              ].map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setFilterType(t.id as any)}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-                    filterType === t.id 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+              {boardMode === 'xp' ? (
+                [
+                  { id: 'all', label: 'TẤT CẢ' },
+                  { id: 'weekly', label: 'ĐUA TOP TUẦN' },
+                  { id: 'schools', label: 'ĐẠI HỌC TOP' }
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setFilterType(t.id as any)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                      filterType === t.id 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))
+              ) : (
+                <span className="px-4 py-2 text-xs font-bold text-rose-400 flex items-center space-x-1.5">
+                  <Swords className="w-3.5 h-3.5" />
+                  <span>ELO RATING</span>
+                </span>
+              )}
             </div>
 
             {/* Simple Search Box */}
@@ -494,20 +560,33 @@ export default function LeaderboardView({
 
           {/* List Entries */}
           <div className="overflow-x-auto">
+            {(boardMode === 'xp' && loading) || (boardMode === 'arena' && arenaLoading) ? (
+              <p className="text-center text-gray-500 text-sm py-8">Đang tải bảng xếp hạng...</p>
+            ) : (
             <table className="w-full text-left font-sans text-xs">
               <thead>
                 <tr className="border-b border-slate-900 text-slate-500 font-bold tracking-wider hover:bg-slate-950/20">
                   <th className="py-3.5 pl-4 w-16 text-center">HẠNG</th>
                   <th className="py-3.5">THÍ SINH</th>
                   <th className="py-3.5">TRƯỜNG HOA LÂM</th>
-                  <th className="py-3.5 text-center">ĐÃ GIẢI</th>
-                  <th className="py-3.5 text-right pr-4">ĐIỂM SỐ</th>
+                  {boardMode === 'arena' ? (
+                    <>
+                      <th className="py-3.5 text-center">TRẬN</th>
+                      <th className="py-3.5 text-center">T/H</th>
+                      <th className="py-3.5 text-right pr-4">ELO</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="py-3.5 text-center">ĐÃ GIẢI</th>
+                      <th className="py-3.5 text-right pr-4">ĐIỂM SỐ</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-900 text-gray-300">
                 {filteredLeaders.map((leader) => (
                   <tr 
-                    key={leader.rank}
+                    key={`${boardMode}-${leader.id || leader.rank}`}
                     className="hover:bg-slate-900/30 transition-all cursor-pointer group"
                   >
                     <td className="py-4 pl-4 text-center font-mono font-bold text-slate-400 text-sm">
@@ -528,16 +607,33 @@ export default function LeaderboardView({
                     <td className="py-4 text-gray-400">
                       {leader.school}
                     </td>
-                    <td className="py-4 text-center font-mono text-indigo-400 font-bold">
-                      {leader.solved} bài
-                    </td>
-                    <td className="py-4 text-right pr-4 font-mono font-extrabold text-white text-sm">
-                      {leader.xp.toLocaleString()} XP
-                    </td>
+                    {boardMode === 'arena' ? (
+                      <>
+                        <td className="py-4 text-center font-mono text-gray-400">
+                          {leader.games ?? 0}
+                        </td>
+                        <td className="py-4 text-center font-mono text-indigo-400 font-bold">
+                          {leader.wins ?? 0}/{leader.losses ?? 0}
+                        </td>
+                        <td className="py-4 text-right pr-4 font-mono font-extrabold text-rose-400 text-sm">
+                          {(leader.elo ?? leader.xp).toLocaleString()}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-4 text-center font-mono text-indigo-400 font-bold">
+                          {leader.solved} bài
+                        </td>
+                        <td className="py-4 text-right pr-4 font-mono font-extrabold text-white text-sm">
+                          {leader.xp.toLocaleString()} XP
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         </div>
 
@@ -570,16 +666,28 @@ export default function LeaderboardView({
             </div>
           </div>
 
-          {/* XP target progress bar */}
           <div className="flex flex-col text-left justify-center space-y-1.5 min-w-[200px] relative z-10">
             <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-indigo-400 font-bold">{(currentUser ? currentUser.xp : 12400).toLocaleString()} XP</span>
-              <span className="text-slate-500">Mục tiêu tịnh tiến: 15,000 XP (Để lên rank Cao Thủ)</span>
+              {boardMode === 'arena' ? (
+                <>
+                  <span className="text-rose-400 font-bold">{selfElo.toLocaleString()} ELO</span>
+                  <span className="text-slate-500">
+                    {selfEntry ? `${selfEntry.wins ?? 0} thắng / ${selfEntry.losses ?? 0} thua` : 'Chưa có trận Arena'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-indigo-400 font-bold">{(currentUser ? currentUser.xp : 12400).toLocaleString()} XP</span>
+                  <span className="text-slate-500">Mục tiêu tịnh tiến: 15,000 XP (Để lên rank Cao Thủ)</span>
+                </>
+              )}
             </div>
             
+            {boardMode === 'xp' && (
             <div className="w-full bg-slate-950/80 rounded-full h-2.5 border border-slate-900 overflow-hidden">
               <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full" style={{ width: `${Math.min(100, ((currentUser ? currentUser.xp : 12400) / 15000) * 100)}%` }}></div>
             </div>
+            )}
           </div>
 
           <div className="relative z-10 flex items-center shrink-0">

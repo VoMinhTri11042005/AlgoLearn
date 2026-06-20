@@ -8,6 +8,7 @@ import pg from "pg";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import bcrypt from "bcryptjs";
+import { exec } from "child_process";
 
 // Session typing for TypeScript
 declare module 'express-session' {
@@ -65,7 +66,44 @@ interface Lesson {
 interface DB {
   users: DBUser[];
   syllabus: Lesson[];
+  // Arena 1v1 (MVP, local fallback)
+  arena_queue?: string[]; // userIds waiting
+  arena_matches?: ArenaMatch[];
+  arena_ratings?: ArenaRating[]; // elo per user
 }
+
+type ArenaMatchStatus = 'waiting' | 'running' | 'finished';
+
+interface ArenaMatch {
+  id: string;
+  createdAt: string;
+  status: ArenaMatchStatus;
+  playerId: string;
+  opponentId: string | null;
+  opponentAssignedAt?: string;
+  submittedBy?: 'player' | 'opponent';
+  finishedAt?: string;
+  winnerId?: string;
+  // MVP scoring: victory/defeat only (no real testcase runner yet)
+  playerResult?: 'victory' | 'defeat';
+  opponentResult?: 'victory' | 'defeat';
+  // store a snapshot for leaderboard/debug
+  eloBefore?: { player: number; opponent: number };
+  eloAfter?: { player: number; opponent: number };
+  playerPassCount?: number;
+  opponentPassCount?: number;
+  isOpponentBot?: boolean;
+}
+
+interface ArenaRating {
+  userId: string;
+  elo: number;
+  games: number;
+  wins: number;
+  losses: number;
+  updatedAt: string;
+}
+
 
 const DEFAULT_SYLLABUS: Lesson[] = [
   { id: '1', title: 'Bài 1: Tổng quan về Thuật toán & Big O', progress: 100, active: false, difficulty: 'easy' },
@@ -199,20 +237,60 @@ const INITIAL_USERS: DBUser[] = [
   }
 ];
 
+function isBcryptHash(value?: string): boolean {
+  return !!value && (value.startsWith('$2a$') || value.startsWith('$2b$') || value.startsWith('$2y$'));
+}
+
+function publicUser(user: DBUser) {
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
+function usersForClient(users: DBUser[]) {
+  return users.map(u => ({
+    ...publicUser(u),
+    role: u.isAdmin ? 'admin' : 'user',
+  }));
+}
+
+function hashSeedUsers(users: DBUser[]): DBUser[] {
+  return users.map(user => ({
+    ...user,
+    password: isBcryptHash(user.password) ? user.password : bcrypt.hashSync(user.password || '', 10),
+  }));
+}
+
 // Local JSON Fallback Handling
 function initDB(): DB {
   if (fs.existsSync(DB_FILE)) {
     try {
       const data = fs.readFileSync(DB_FILE, "utf-8");
       const db = JSON.parse(data) as DB;
+      let changed = false;
       // Ensure hutech student exists in the database
       const hasHutech = db.users.some(u => u.email.toLowerCase() === 'hutech_sv@algolearn.vn');
       if (!hasHutech) {
         const hutechUser = INITIAL_USERS.find(u => u.email.toLowerCase() === 'hutech_sv@algolearn.vn');
         if (hutechUser) {
-          db.users.push(hutechUser);
-          fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
+          db.users.push({
+            ...hutechUser,
+            password: bcrypt.hashSync(hutechUser.password || '', 10),
+          });
+          changed = true;
         }
+      }
+      for (const user of db.users) {
+        if (user.password && !isBcryptHash(user.password)) {
+          user.password = bcrypt.hashSync(user.password, 10);
+          changed = true;
+        }
+      }
+      if (!Array.isArray((db as any).daily_history)) {
+        (db as any).daily_history = [];
+        changed = true;
+      }
+      if (changed) {
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
       }
       return db;
     } catch (e) {
@@ -221,7 +299,7 @@ function initDB(): DB {
   }
 
   const defaultDB: DB = {
-    users: INITIAL_USERS,
+    users: hashSeedUsers(INITIAL_USERS),
     syllabus: DEFAULT_SYLLABUS
   };
   fs.writeFileSync(DB_FILE, JSON.stringify(defaultDB, null, 2), "utf-8");
@@ -617,10 +695,11 @@ async function resetDBUsers(): Promise<DBUser[]> {
     try {
       await dbPool.query("DELETE FROM users");
       for (const u of INITIAL_USERS) {
+        const hashed = isBcryptHash(u.password) ? u.password : await bcrypt.hash(u.password || '', 10);
         await dbPool.query(
           `INSERT INTO users (id, name, email, school, avatar, xp, solved, streak, created_at, is_admin, password)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [u.id, u.name, u.email, u.school, u.avatar, u.xp, u.solved, u.streak, u.createdAt, u.isAdmin, u.password]
+          [u.id, u.name, u.email, u.school, u.avatar, u.xp, u.solved, u.streak, u.createdAt, u.isAdmin, hashed]
         );
       }
       const res = await dbPool.query("SELECT id, name, email, school, avatar, xp, solved, streak, created_at, is_admin, password FROM users");
@@ -642,7 +721,7 @@ async function resetDBUsers(): Promise<DBUser[]> {
     }
   }
   const currentDb = initDB();
-  currentDb.users = JSON.parse(JSON.stringify(INITIAL_USERS));
+  currentDb.users = hashSeedUsers(JSON.parse(JSON.stringify(INITIAL_USERS)));
   saveDB(currentDb);
   return currentDb.users;
 }
@@ -705,11 +784,15 @@ async function registerDBUser(user: Omit<DBUser, "id" | "createdAt" | "isAdmin" 
   const isAdmin = emailQuery === 'admin@algolearn.vn';
   const createdAt = new Date().toISOString();
 
-  const hashed = await bcrypt.hash(user.password, 10);
+  const hashed = isBcryptHash(user.password) ? user.password : await bcrypt.hash(user.password, 10);
 
   // SECURITY: register luôn lưu bcrypt hash.
-  // Nếu DB cũ đã từng seed plaintext password thì endpoint login sẽ KHÔNG chấp nhận plaintext.
-  // (Chúng ta sẽ thêm re-hash seed ở dưới để đảm bảo các user ban đầu luôn dùng bcrypt.)
+  // NOTE: MVP fix auth for local db.json: db.json có thể chứa legacy plaintext.
+  // Nếu user.password là plaintext (không bắt đầu bằng $2a/$2b/$2y) thì hash lại để login dùng bcrypt.compare.
+  const isBcrypt = (user.password || '').startsWith('$2a$') || (user.password || '').startsWith('$2b$') || (user.password || '').startsWith('$2y$');
+  const hashedNormalized = isBcrypt ? user.password : await bcrypt.hash(user.password, 10);
+
+
 
 
 
@@ -782,9 +865,11 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
         const row = res.rows[0] as any;
         const stored: string = row.password;
 
-        const isMatch = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')
+        const isBcrypt = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$');
+        const isMatch = isBcrypt
           ? await bcrypt.compare(password, stored)
-          : false; // SECURITY: do not accept plaintext passwords
+          : stored === password;
+
 
 
         if (!isMatch) return null;
@@ -812,9 +897,14 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
   if (!found) return null;
 
   const stored: string = found.password || '';
-  const isMatch = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')
+  const looksBcrypt = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$');
+
+  // MVP compatibility: db.json có thể chứa plaintext password.
+  // - nếu stored là bcrypt -> bcrypt.compare
+  // - nếu stored là plaintext -> so sánh thẳng
+  const isMatch = looksBcrypt
     ? await bcrypt.compare(password, stored)
-    : false;
+    : stored === password;
 
   return isMatch ? found : null;
 
@@ -996,11 +1086,7 @@ async function startServer() {
   app.post("/api/syllabus/reset", async (req, res) => {
     const updated = await resetDBSyllabus();
     const users = await resetDBUsers();
-    const mappedUsers = users.map(({ password, ...u }) => ({
-      ...u,
-      role: u.isAdmin ? 'admin' : 'user'
-    }));
-    res.json({ status: "success", syllabus: updated, users: mappedUsers });
+    res.json({ status: "success", syllabus: updated, users: usersForClient(users) });
   });
 
   // API Route - Set active lesson
@@ -1021,12 +1107,7 @@ async function startServer() {
   // API Route - Users List (For admin dashboard or leaderboard compilation)
   app.get("/api/users", async (req, res) => {
     const users = await getDBUsers();
-    // Exclude password field for general inquiries, add role property
-    const usersWithoutPassword = users.map(({ password, ...u }) => ({
-      ...u,
-      role: u.isAdmin ? 'admin' : 'user'
-    }));
-    res.json(usersWithoutPassword);
+    res.json(usersForClient(users));
   });
 
   // API Route - Update user role (Admin only)
@@ -1036,11 +1117,11 @@ async function startServer() {
 
     if (updatedUser) {
       const users = await getDBUsers();
-      const mappedUsers = users.map(({ password, ...u }) => ({
-        ...u,
-        role: u.isAdmin ? 'admin' : 'user'
-      }));
-      res.json({ status: "success", users: mappedUsers, user: { ...updatedUser, role: updatedUser.isAdmin ? 'admin' : 'user' } });
+      res.json({
+        status: "success",
+        users: usersForClient(users),
+        user: { ...publicUser(updatedUser), role: updatedUser.isAdmin ? 'admin' : 'user' },
+      });
     } else {
       res.status(404).json({ error: "User not found" });
     }
@@ -1067,26 +1148,38 @@ async function startServer() {
       return res.status(400).json({ error: "Địa chỉ email này đã được sử dụng rồi!" });
     }
 
-    const { password: _, ...userResponse } = newUser;
-    res.json({ user: userResponse, message: "Register success!" });
+    req.session.userId = newUser.id;
+    req.session.isAdmin = newUser.isAdmin;
+    res.json({ user: publicUser(newUser), message: "Register success!" });
   });
 
   // API Route - User Auth Login
   app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
+    // DEBUG (dev only): helps diagnose why local login fails
+    const debug = process.env.NODE_ENV !== 'production';
+
 
 
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
     }
 
+    if (debug) {
+      console.log('[DEBUG login]', { email: String(email), passwordProvided: typeof password, passwordLen: String(password || '').length });
+    }
+
     const matchedUser = await loginDBUser(email, password);
+    if (debug) {
+      console.log('[DEBUG login result]', { matched: !!matchedUser, matchedId: matchedUser?.id });
+    }
+
     if (matchedUser) {
+
       req.session.userId = matchedUser.id;
       req.session.isAdmin = matchedUser.isAdmin;
 
-      const { password: _, ...userResponse } = matchedUser;
-      res.json({ user: userResponse, message: "Login success!" });
+      res.json({ user: publicUser(matchedUser), message: "Login success!" });
     } else {
 
       res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu! Vui lòng kiểm tra kỹ." });
@@ -1094,12 +1187,16 @@ async function startServer() {
   });
 
   // API Route - Update profile / XP / Streak
-  app.post("/api/auth/update-profile", async (req, res) => {
+  app.post("/api/auth/update-profile", requireAuth, async (req, res) => {
     const { userId, xp, solved, streak } = req.body;
+
+    if (req.session?.userId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
     const updatedUser = await updateDBProfile(userId, xp, solved, streak);
     if (updatedUser) {
-      res.json({ user: updatedUser, message: "Profile updated on server!" });
+      res.json({ user: publicUser(updatedUser), message: "Profile updated on server!" });
     } else {
       res.status(404).json({ error: "User not found on database" });
     }
@@ -1300,8 +1397,675 @@ async function startServer() {
   });
 
 
+  // =============================
+  // Arena 1v1 MVP (queue + match + Elo, local fallback)
+  // =============================
+
+  const runPythonSandbox = (code: string): Promise<{ passedCount: number; totalCount: number; results: any[]; logs: string[] }> => {
+    return new Promise((resolve) => {
+      const tempDir = path.join(process.cwd(), 'temp_arena');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir);
+      }
+      const tempFileName = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.py`;
+      const tempFilePath = path.join(tempDir, tempFileName);
+
+      // Python test harness code to append
+      const harness = `
+# Ensure TreeNode and Solution exist
+try:
+    TreeNode
+except NameError:
+    class TreeNode:
+        def __init__(self, val=0, left=None, right=None):
+            self.val = val
+            self.left = left
+            self.right = right
+
+# Serializer & Deserializer
+def deserialize(lst):
+    if not lst:
+        return None
+    root = TreeNode(lst[0])
+    queue = [root]
+    i = 1
+    while queue and i < len(lst):
+        curr = queue.pop(0)
+        if curr is not None:
+            if i < len(lst) and lst[i] is not None:
+                curr.left = TreeNode(lst[i])
+                queue.append(curr.left)
+            else:
+                curr.left = None
+                queue.append(None)
+            i += 1
+            if i < len(lst) and lst[i] is not None:
+                curr.right = TreeNode(lst[i])
+                queue.append(curr.right)
+            else:
+                curr.right = None
+                queue.append(None)
+            i += 1
+    return root
+
+def serialize(root):
+    if not root:
+        return []
+    result = []
+    queue = [root]
+    while any(queue):
+        curr = queue.pop(0)
+        if curr:
+            result.append(curr.val)
+            queue.append(curr.left)
+            queue.append(curr.right)
+        else:
+            result.append(None)
+    while result and result[-1] is None:
+        result.pop()
+    return result
+
+import json
+import sys
+
+# Test cases
+testcases = [
+    ([], []),
+    ([1], [1]),
+    ([2, 1, 3], [2, 3, 1]),
+    ([4, 2, 7, 1, 3, 6, 9], [4, 7, 2, 9, 6, 3, 1]),
+    ([1, 2, None, 3, None, 4], [1, None, 2, None, 3, None, 4])
+]
+
+try:
+    sol = Solution()
+    results = []
+    passed_count = 0
+    for idx, (inp, exp) in enumerate(testcases):
+        try:
+            root = deserialize(inp)
+            res_tree = sol.invertTree(root)
+            out = serialize(res_tree)
+            passed = out == exp
+            if passed:
+                passed_count += 1
+            results.append({
+                "testcase": idx + 1,
+                "passed": passed,
+                "input": inp,
+                "expected": exp,
+                "actual": out
+            })
+        except Exception as e:
+            results.append({
+                "testcase": idx + 1,
+                "passed": False,
+                "input": inp,
+                "expected": exp,
+                "actual": "Error: " + str(e)
+            })
+    print(json.dumps({"passed_count": passed_count, "total": len(testcases), "results": results}))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+`;
+
+      const fullCode = code + '\n' + harness;
+      fs.writeFileSync(tempFilePath, fullCode, 'utf8');
+
+      const cmd = `python "${tempFilePath}"`;
+      exec(cmd, { timeout: 3000 }, (error: any, stdout: string, stderr: string) => {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch (e) {
+          // ignore
+        }
+
+        const logs: string[] = [
+          "⚙️ Kết nối máy chủ chấm bài Sandbox Server...",
+        ];
+
+        if (error && error.killed) {
+          logs.push("❌ Quá thời gian thực thi (Timeout 3s). Có thể có vòng lặp vô hạn!");
+          return resolve({
+            passedCount: 0,
+            totalCount: 5,
+            results: [],
+            logs
+          });
+        }
+
+        if (stderr) {
+          logs.push("❌ Runtime Error / Syntax Error:");
+          logs.push(stderr);
+          return resolve({
+            passedCount: 0,
+            totalCount: 5,
+            results: [],
+            logs
+          });
+        }
+
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          if (parsed.error) {
+            logs.push(`❌ Lỗi khởi tạo: ${parsed.error}`);
+            return resolve({
+              passedCount: 0,
+              totalCount: 5,
+              results: [],
+              logs
+            });
+          }
+
+          const results = parsed.results || [];
+          for (const res of results) {
+            if (res.passed) {
+              logs.push(`⚙️ Đang chạy thử nghiệm Testcase #${res.testcase} (Đầu vào: ${JSON.stringify(res.input)}) -> PASSED`);
+            } else {
+              logs.push(`⚙️ Đang chạy thử nghiệm Testcase #${res.testcase} (Đầu vào: ${JSON.stringify(res.input)}) -> FAILED`);
+              logs.push(`   - Kỳ vọng: ${JSON.stringify(res.expected)}`);
+              logs.push(`   - Thực tế: ${JSON.stringify(res.actual)}`);
+            }
+          }
+
+          if (parsed.passed_count === parsed.total) {
+            logs.push("✔️ TẤT CẢ 5/5 TESTCASES ĐỀU KHỚP KẾT QUẢ ĐẦU RA!");
+            logs.push("=================== THI ĐẤU HOÀN TẤT ===================");
+          } else {
+            logs.push(`❌ Kết quả: ${parsed.passed_count}/${parsed.total} testcases vượt qua.`);
+          }
+
+          resolve({
+            passedCount: parsed.passed_count,
+            totalCount: parsed.total,
+            results,
+            logs
+          });
+        } catch (e) {
+          logs.push("❌ Không thể phân tích kết quả đầu ra của chương trình.");
+          logs.push(stdout);
+          resolve({
+            passedCount: 0,
+            totalCount: 5,
+            results: [],
+            logs
+          });
+        }
+      });
+    });
+  };
+
+  const getArenaStateLocal = () => {
+    const dbAny: any = initDB() as any;
+    if (!Array.isArray(dbAny.arena_queue)) dbAny.arena_queue = [];
+    if (!Array.isArray(dbAny.arena_matches)) dbAny.arena_matches = [];
+    if (!Array.isArray(dbAny.arena_ratings)) dbAny.arena_ratings = [];
+    return dbAny;
+  };
+
+  const getArenaRatingFromState = (dbAny: any, userId: string): ArenaRating => {
+    const existing = (dbAny.arena_ratings as ArenaRating[]).find(r => r.userId === userId);
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const created: ArenaRating = {
+      userId,
+      elo: 1200,
+      games: 0,
+      wins: 0,
+      losses: 0,
+      updatedAt: now,
+    };
+    dbAny.arena_ratings.push(created);
+    return created;
+  };
+
+  const persistArenaLocal = (dbAny: any) => saveDB(dbAny as any);
+
+  const queueJoinTimes: Record<string, number> = {};
+
+  const ensureMatchOpponentPairing = (dbAny: any) => {
+    // Pair FIFO for MVP, but avoid pairing same user.
+    const queue = dbAny.arena_queue as string[];
+    // Remove duplicates while preserving order
+    const seen = new Set<string>();
+    const deduped = queue.filter((u: string) => {
+      if (seen.has(u)) return false;
+      seen.add(u);
+      return true;
+    });
+    dbAny.arena_queue = deduped;
+
+    // First pair real players
+    while (deduped.length >= 2) {
+      const playerId = deduped.shift() as string;
+      const opponentId = deduped.shift() as string;
+
+      const match: ArenaMatch = {
+        id: `match_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: new Date().toISOString(),
+        status: 'running',
+        playerId,
+        opponentId,
+        opponentAssignedAt: new Date().toISOString(),
+        playerPassCount: 0,
+        opponentPassCount: 0,
+        isOpponentBot: false,
+      };
+
+      (dbAny.arena_matches as ArenaMatch[]).push(match);
+      delete queueJoinTimes[playerId];
+      delete queueJoinTimes[opponentId];
+    }
+
+    // Check if the remaining single player has been waiting for >= 5s
+    if (deduped.length === 1) {
+      const playerId = deduped[0];
+      const joinedAt = queueJoinTimes[playerId];
+      if (joinedAt && Date.now() - joinedAt >= 5000) {
+        const users = dbAny.users || [];
+        const candidateBots = users.filter((u: any) => u.id !== playerId);
+        const botOpponent = candidateBots.length > 0
+          ? candidateBots[Math.floor(Math.random() * candidateBots.length)]
+          : { id: 'bot_felix', name: 'Felix Bot', school: 'HUST', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80' };
+
+        const match: ArenaMatch = {
+          id: `match_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          createdAt: new Date().toISOString(),
+          status: 'running',
+          playerId,
+          opponentId: botOpponent.id,
+          opponentAssignedAt: new Date().toISOString(),
+          playerPassCount: 0,
+          opponentPassCount: 0,
+          isOpponentBot: true,
+        };
+
+        (dbAny.arena_matches as ArenaMatch[]).push(match);
+        deduped.shift(); // remove from queue
+        delete queueJoinTimes[playerId];
+      }
+    }
+
+    dbAny.arena_queue = deduped;
+  };
+
+  const eloUpdate = (playerElo: number, opponentElo: number, score: 1 | 0) => {
+    // score=1 => player win, score=0 => player lose
+    const K = 32;
+    const expectedPlayer = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
+    const expectedOpponent = 1 / (1 + Math.pow(10, (playerElo - opponentElo) / 400));
+
+    const newPlayer = playerElo + K * (score - expectedPlayer);
+    const newOpponent = opponentElo + K * ((1 - score) - expectedOpponent);
+    return {
+      playerElo: Math.round(newPlayer),
+      opponentElo: Math.round(newOpponent),
+    };
+  };
+
+  // POST /api/arena/queue/join
+  app.post('/api/arena/queue/join', requireAuth, async (req, res) => {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    if (req.session?.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    // MVP: local fallback only
+    const dbAny: any = getArenaStateLocal();
+
+    // Already in running match?
+    const existingRunning = (dbAny.arena_matches as ArenaMatch[]).find(
+      (m: ArenaMatch) => m.status === 'running' && (m.playerId === userId || m.opponentId === userId)
+    );
+    if (existingRunning) {
+      return res.json({ status: 'already-in-match', matchId: existingRunning.id });
+    }
+
+    if (!(dbAny.arena_queue as string[]).includes(userId)) {
+      (dbAny.arena_queue as string[]).push(userId);
+      queueJoinTimes[userId] = Date.now();
+    }
+
+    ensureMatchOpponentPairing(dbAny);
+    persistArenaLocal(dbAny);
+
+    // If pairing created immediately, return the newest match containing this user.
+    const matched = (dbAny.arena_matches as ArenaMatch[]).find(
+      (m: ArenaMatch) => m.status === 'running' && (m.playerId === userId || m.opponentId === userId)
+    );
+
+    return res.json({ status: 'queued', matchId: matched?.id || null });
+  });
+
+  // POST /api/arena/queue/leave
+  app.post('/api/arena/queue/leave', requireAuth, async (req, res) => {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    if (req.session?.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    const dbAny: any = getArenaStateLocal();
+    dbAny.arena_queue = (dbAny.arena_queue as string[]).filter((u: string) => u !== userId);
+    delete queueJoinTimes[userId];
+    persistArenaLocal(dbAny);
+
+    return res.json({ status: 'left' });
+  });
+
+  // GET /api/arena/status
+  app.get('/api/arena/status', requireAuth, async (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const dbAny: any = getArenaStateLocal();
+    ensureMatchOpponentPairing(dbAny);
+
+    const runningMatch = (dbAny.arena_matches as ArenaMatch[]).find(
+      (m: ArenaMatch) => m.status === 'running' && (m.playerId === userId || m.opponentId === userId)
+    );
+
+    if (runningMatch) {
+      const opponentId = runningMatch.playerId === userId ? runningMatch.opponentId : runningMatch.playerId;
+      const opponent = dbAny.users?.find((u: any) => u.id === opponentId) || null;
+      const playerRating = getArenaRatingFromState(dbAny, runningMatch.playerId);
+      const opponentRating = runningMatch.opponentId ? getArenaRatingFromState(dbAny, runningMatch.opponentId) : null;
+
+      // Bot progress simulation: 1 testcase every ~18 seconds
+      let botProgress = runningMatch.opponentPassCount || 0;
+      if (runningMatch.isOpponentBot && runningMatch.status === 'running' && runningMatch.opponentAssignedAt) {
+        const elapsed = (Date.now() - new Date(runningMatch.opponentAssignedAt).getTime()) / 1000;
+        botProgress = Math.min(5, Math.floor(elapsed / 18));
+        runningMatch.opponentPassCount = botProgress;
+
+        // Bot auto-finishes at 5/5
+        if (botProgress >= 5 && !runningMatch.winnerId) {
+          const eloBefore = { player: playerRating.elo, opponent: opponentRating?.elo || 1200 };
+          const updated = eloUpdate(playerRating.elo, opponentRating?.elo || 1200, 0);
+          const now = new Date().toISOString();
+
+          playerRating.elo = updated.playerElo;
+          playerRating.games += 1;
+          playerRating.losses += 1;
+          playerRating.updatedAt = now;
+
+          if (opponentRating) {
+            opponentRating.elo = updated.opponentElo;
+            opponentRating.games += 1;
+            opponentRating.wins += 1;
+            opponentRating.updatedAt = now;
+          }
+
+          runningMatch.status = 'finished';
+          runningMatch.finishedAt = now;
+          runningMatch.winnerId = runningMatch.opponentId;
+          runningMatch.playerResult = 'defeat';
+          runningMatch.opponentResult = 'victory';
+          runningMatch.eloBefore = eloBefore;
+          runningMatch.eloAfter = { player: updated.playerElo, opponent: updated.opponentElo };
+        }
+      }
+
+      // Calculate time left based on match creation
+      const matchCreatedMs = new Date(runningMatch.createdAt).getTime();
+      const elapsedSec = Math.floor((Date.now() - matchCreatedMs) / 1000);
+      const timeLeft = Math.max(0, 900 - elapsedSec); // 15 minute match
+
+      persistArenaLocal(dbAny);
+
+      return res.json({
+        status: runningMatch.status === 'finished' ? 'finished' : 'running',
+        matchId: runningMatch.id,
+        opponent: opponent ? publicUser(opponent) : null,
+        elo: {
+          player: playerRating.elo,
+          opponent: opponentRating?.elo || 1200,
+        },
+        timeLeftSeconds: timeLeft,
+        progress: {
+          player: runningMatch.playerPassCount || 0,
+          opponent: runningMatch.opponentPassCount || 0,
+          total: 5,
+        },
+        isOpponentBot: runningMatch.isOpponentBot || false,
+        result: runningMatch.status === 'finished' ? { winnerId: runningMatch.winnerId, playerResult: runningMatch.playerResult, opponentResult: runningMatch.opponentResult } : null,
+      });
+    }
+
+    const queued = (dbAny.arena_queue as string[]).includes(userId);
+    const waitingSince = queueJoinTimes[userId] || null;
+    persistArenaLocal(dbAny);
+
+    return res.json({
+      status: queued ? 'queued' : 'idle',
+      matchId: null,
+      opponent: null,
+      waitingSince,
+    });
+  });
+
+  // GET /api/arena/match/:matchId
+  app.get('/api/arena/match/:matchId', requireAuth, async (req, res) => {
+    const matchId = req.params.matchId;
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const dbAny: any = getArenaStateLocal();
+    const match = (dbAny.arena_matches as ArenaMatch[]).find((m: ArenaMatch) => m.id === matchId);
+    if (!match) return res.status(404).json({ error: 'match not found' });
+    if (match.playerId !== userId && match.opponentId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    // Prepare opponent info
+    const opponentId = match.playerId === userId ? match.opponentId : match.playerId;
+    const opponent = dbAny.users?.find((u: any) => u.id === opponentId) || null;
+    const playerRating = getArenaRatingFromState(dbAny, match.playerId);
+    const opponentRating = match.opponentId ? getArenaRatingFromState(dbAny, match.opponentId) : null;
+
+    // Bot progress simulation
+    if (match.isOpponentBot && match.status === 'running' && match.opponentAssignedAt) {
+      const elapsed = (Date.now() - new Date(match.opponentAssignedAt).getTime()) / 1000;
+      const botProgress = Math.min(5, Math.floor(elapsed / 18));
+      match.opponentPassCount = botProgress;
+
+      // Bot auto-finishes at 5/5
+      if (botProgress >= 5 && !match.winnerId) {
+        const eloBefore = { player: playerRating.elo, opponent: opponentRating?.elo || 1200 };
+        const updated = eloUpdate(playerRating.elo, opponentRating?.elo || 1200, 0);
+        const now = new Date().toISOString();
+
+        playerRating.elo = updated.playerElo;
+        playerRating.games += 1;
+        playerRating.losses += 1;
+        playerRating.updatedAt = now;
+
+        if (opponentRating) {
+          opponentRating.elo = updated.opponentElo;
+          opponentRating.games += 1;
+          opponentRating.wins += 1;
+          opponentRating.updatedAt = now;
+        }
+
+        match.status = 'finished';
+        match.finishedAt = now;
+        match.winnerId = match.opponentId;
+        match.playerResult = 'defeat';
+        match.opponentResult = 'victory';
+        match.eloBefore = eloBefore;
+        match.eloAfter = { player: updated.playerElo, opponent: updated.opponentElo };
+      }
+    }
+
+    // Dynamic time left
+    const matchCreatedMs = new Date(match.createdAt).getTime();
+    const elapsedSec = Math.floor((Date.now() - matchCreatedMs) / 1000);
+    const timeLeft = Math.max(0, 900 - elapsedSec);
+
+    persistArenaLocal(dbAny);
+
+    return res.json({
+      matchId: match.id,
+      status: match.status,
+      opponent: match.opponentId && opponent ? publicUser(opponent) : null,
+      timeLeftSeconds: timeLeft,
+      elo: {
+        player: playerRating.elo,
+        opponent: opponentRating?.elo || 1200,
+      },
+      progress: {
+        player: match.playerPassCount || 0,
+        opponent: match.opponentPassCount || 0,
+        total: 5,
+      },
+      isOpponentBot: match.isOpponentBot || false,
+      result: match.status === 'finished' ? { winnerId: match.winnerId, playerResult: match.playerResult, opponentResult: match.opponentResult } : null,
+    });
+  });
+
+  // POST /api/arena/match/:matchId/submit
+  app.post('/api/arena/match/:matchId/submit', requireAuth, async (req, res) => {
+    const matchId = req.params.matchId;
+    const { code } = req.body || {};
+
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const dbAny: any = getArenaStateLocal();
+    const match = (dbAny.arena_matches as ArenaMatch[]).find((m: ArenaMatch) => m.id === matchId);
+    if (!match) return res.status(404).json({ error: 'match not found' });
+    if (match.status !== 'running') return res.status(400).json({ error: 'match not running' });
+    if (match.playerId !== userId && match.opponentId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    // Anti repeat submit after a winner is determined
+    if (match.winnerId) return res.json({ status: 'already-finished', winnerId: match.winnerId });
+
+    if (!code || typeof code !== 'string' || code.trim().length === 0) {
+      return res.status(400).json({ error: 'code is required' });
+    }
+
+    // Run through Python sandbox
+    const sandboxResult = await runPythonSandbox(code);
+
+    const isSenderPlayer = match.playerId === userId;
+    // Update player pass count
+    if (isSenderPlayer) {
+      match.playerPassCount = sandboxResult.passedCount;
+    } else {
+      match.opponentPassCount = sandboxResult.passedCount;
+    }
+
+    // If not all tests passed, allow re-submission
+    if (sandboxResult.passedCount < sandboxResult.totalCount) {
+      persistArenaLocal(dbAny);
+      return res.json({
+        status: 'partial',
+        passedCount: sandboxResult.passedCount,
+        totalCount: sandboxResult.totalCount,
+        logs: sandboxResult.logs,
+        results: sandboxResult.results,
+        progress: {
+          player: match.playerPassCount || 0,
+          opponent: match.opponentPassCount || 0,
+          total: 5,
+        },
+      });
+    }
+
+    // All 5/5 passed → player wins this match
+    const playerWins = isSenderPlayer;
+    const playerResult: 'victory' | 'defeat' = playerWins ? 'victory' : 'defeat';
+    const opponentResult: 'victory' | 'defeat' = playerWins ? 'defeat' : 'victory';
+
+    const playerRating = getArenaRatingFromState(dbAny, match.playerId);
+    const opponentRating = match.opponentId ? getArenaRatingFromState(dbAny, match.opponentId) : null;
+    if (!match.opponentId || !opponentRating) return res.status(400).json({ error: 'opponent not assigned' });
+
+    const eloBefore = { player: playerRating.elo, opponent: opponentRating.elo };
+    const updated = eloUpdate(playerRating.elo, opponentRating.elo, playerWins ? 1 : 0);
+
+    const now = new Date().toISOString();
+
+    playerRating.elo = updated.playerElo;
+    playerRating.games += 1;
+    playerRating.wins += (playerWins ? 1 : 0);
+    playerRating.losses += (playerWins ? 0 : 1);
+    playerRating.updatedAt = now;
+
+    opponentRating.elo = updated.opponentElo;
+    opponentRating.games += 1;
+    opponentRating.wins += (playerWins ? 0 : 1);
+    opponentRating.losses += (playerWins ? 1 : 0);
+    opponentRating.updatedAt = now;
+
+    match.status = 'finished';
+    match.finishedAt = now;
+    match.winnerId = playerWins ? match.playerId : match.opponentId;
+    match.playerResult = playerResult;
+    match.opponentResult = opponentResult;
+    match.submittedBy = isSenderPlayer ? 'player' : 'opponent';
+    match.eloBefore = eloBefore;
+    match.eloAfter = { player: updated.playerElo, opponent: updated.opponentElo };
+
+    persistArenaLocal(dbAny);
+
+    return res.json({
+      status: 'ok',
+      winnerId: match.winnerId,
+      winnerIsPlayer: playerWins,
+      eloBefore: match.eloBefore,
+      eloAfter: match.eloAfter,
+      rewardXp: playerWins ? 500 : 150,
+      passedCount: sandboxResult.passedCount,
+      totalCount: sandboxResult.totalCount,
+      logs: sandboxResult.logs,
+      results: sandboxResult.results,
+    });
+  });
+
+  // GET /api/arena/leaderboard
+  app.get('/api/arena/leaderboard', requireAuth, async (req, res) => {
+    const dbAny: any = getArenaStateLocal();
+    const ratings = Array.isArray(dbAny.arena_ratings) ? (dbAny.arena_ratings as ArenaRating[]) : [];
+
+    // Ensure all users have a rating for consistent leaderboard
+    const users: DBUser[] = dbAny.users || [];
+    for (const u of users) {
+      getArenaRatingFromState(dbAny, u.id);
+    }
+    persistArenaLocal(dbAny);
+
+    const updatedRatings = (dbAny.arena_ratings as ArenaRating[]).slice();
+    updatedRatings.sort((a, b) => b.elo - a.elo || (b.wins - b.losses) - (a.wins - a.losses));
+
+    const entries = updatedRatings.slice(0, 50).map((r, idx) => {
+      const user = users.find((u: any) => u.id === r.userId);
+      let badge = 'Hành giả tập sự';
+      if (r.elo >= 1700) badge = 'Đại Cao Thủ';
+      else if (r.elo >= 1400) badge = 'Cao Thủ';
+      else if (r.elo >= 1100) badge = 'Trưởng lão thuật';
+
+      return {
+        rank: idx + 1,
+        id: r.userId,
+        name: user?.name || r.userId,
+        school: user?.school || '',
+        xp: r.elo,
+        solved: r.wins,
+        avatar: user?.avatar || '',
+        badge,
+        elo: r.elo,
+        games: r.games,
+        wins: r.wins,
+        losses: r.losses,
+      };
+    });
+
+    res.json(entries);
+  });
+
   // API routes first
   app.post("/api/gemini/chat", async (req, res) => {
+
+    // NOTE: arena MVP endpoints are injected above.
+
+
     try {
       const { message, history, context } = req.body;
       const client = getGeminiClient();
@@ -1312,7 +2076,9 @@ async function startServer() {
         });
       }
 
-      const contents = [];
+      // Help TS infer correct type for Gemini contents
+      const contents: any[] = [];
+
       const systemInstruction = `You are "Algo AI", a friendly, highly intelligent Vietnamese AI Coding Assistant specialized in Data Structures and Algorithms (DSA) on the AlgoLearn interactive hub.
 You help Vietnamese IT students master computer science algorithms with deep visual explanations, pseudocode, and optimal complex analysis (Big O).
 Always reply in Vietnamese, with modern, encouraging, and clear markdown, using proper code blocks.
@@ -1380,7 +2146,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('[FATAL] unhandledRejection:', reason);
 });
 
+
 startServer().catch((err) => {
   console.error('[FATAL] startServer failed:', err);
 });
-

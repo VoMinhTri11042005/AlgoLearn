@@ -6,3 +6,6 @@ dist
 .github
 *.log
 docker-compose*.yml
+temp_arena
+tsc_out.txt
+build_out.txt

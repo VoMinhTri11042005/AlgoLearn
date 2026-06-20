@@ -20,6 +20,9 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
+# Cài đặt Python3 cho tính năng Sandbox chấm bài Arena 1v1
+RUN apk add --no-cache python3
+
 # Định nghĩa chế độ Production và gom các log đầu ra chuẩn xác
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -36,6 +39,9 @@ COPY --from=builder /app/dist ./dist
 # Sao chép các tài nguyên động hoặc file database fallback cục bộ nếu có
 COPY --from=builder /app/db.json* ./db.json
 COPY --from=builder /app/assets* ./assets
+
+# Tạo thư mục tạm cho sandbox chấm bài
+RUN mkdir -p temp_arena
 
 # Cấu hình cổng kết nối 3000
 EXPOSE 3000
