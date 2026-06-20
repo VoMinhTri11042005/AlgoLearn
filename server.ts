@@ -975,6 +975,10 @@ async function startServer() {
 
   app.use(express.json());
   app.use(cookieParser());
+
+  // Trust first proxy (Render, Heroku, etc.) so secure cookies work behind HTTPS reverse proxy
+  app.set('trust proxy', 1);
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'dev_session_secret_change_me',
