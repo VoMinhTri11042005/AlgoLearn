@@ -261,7 +261,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+        className="absolute inset-0 bg-black/75 backdrop-blur-xl"
       />
 
       {/* Main Dialog Panel */}
@@ -270,21 +270,21 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.95, y: 15, opacity: 0 }}
         transition={{ type: 'spring', duration: 0.4 }}
-        className="w-full max-w-md bg-[#0b0f19] border border-slate-800/80 rounded-[28px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin relative shadow-2xl flex flex-col z-10"
+        className="w-full max-w-md glass-panel rounded-[28px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin relative flex flex-col z-10 border border-white/[0.08]"
       >
         {/* Glow ambient effects */}
-        <div className="absolute -top-10 -left-10 w-40 h-40 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
-        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-purple-500/5 blur-3xl rounded-full pointer-events-none"></div>
+        <div className="absolute -top-10 -left-10 w-40 h-40 bg-violet-500/10 blur-3xl rounded-full pointer-events-none"></div>
+        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-amber-500/5 blur-3xl rounded-full pointer-events-none"></div>
 
         {/* Modal Header */}
-        <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-900/60 relative z-10 text-left">
+        <div className="p-6 pb-4 flex items-center justify-between border-b border-white/[0.06] relative z-10 text-left">
           <div className="flex items-center space-x-3">
-            <span className="p-2 w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+            <span className="p-2 w-9 h-9 rounded-xl brand-mark text-white flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
             </span>
             <div>
-              <h3 className="text-sm font-extrabold text-white tracking-tight leading-tight">Cổng Học Viên Đăng Nhập</h3>
-              <p className="text-[10px] text-gray-400 font-medium leading-normal mt-0.5">Lưu tiến trình học, giải DSA và leo Top toàn bang hội</p>
+              <h3 className="text-sm font-extrabold text-white tracking-tight leading-tight">Cổng học viên</h3>
+              <p className="text-[10px] text-gray-400 font-medium leading-normal mt-0.5">Lưu tiến trình, leo top và thi đấu 1v1</p>
             </div>
           </div>
           <button 

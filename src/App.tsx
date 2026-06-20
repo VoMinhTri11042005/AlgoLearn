@@ -1542,7 +1542,8 @@ export default function App() {
   const isWorkspaceView = currentView === 'theory' || currentView === 'ide' || currentView === 'arena';
 
   return (
-    <div id="algolearn_root_wrapper" className={`min-h-screen bg-slate-950 text-gray-100 flex flex-col relative font-sans antialiased ${isWorkspaceView ? 'workspace-mode lg:h-screen lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'} ${isFocusMode ? 'focus-mode-active' : ''} ${isScrolled ? 'scrolled' : ''}`}>
+    <div id="algolearn_root_wrapper" className={`min-h-screen premium-app text-gray-100 flex flex-col relative font-sans antialiased ${isWorkspaceView ? 'workspace-mode lg:h-screen lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'} ${isFocusMode ? 'focus-mode-active' : ''} ${isScrolled ? 'scrolled' : ''}`}>
+      <div className="premium-ambient" aria-hidden="true" />
       
       {/* Night Owl / Dark Reader Eye-Care Overlay Glass Filter */}
       <AnimatePresence>
@@ -1566,7 +1567,7 @@ export default function App() {
       {!isFocusMode && (
         <>
           {/* 1. Integrated Responsive Top Header Bar */}
-          <header className={`fixed top-0 left-0 lg:left-64 right-0 h-16 backdrop-blur-md border-b z-40 px-4 lg:px-6 flex items-center justify-between gap-6 transition-all duration-300 ${isScrolled ? 'border-slate-800 bg-slate-950/95 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.7)]' : 'border-slate-900 bg-slate-950/80'}`}>
+          <header className={`fixed top-0 left-0 lg:left-64 right-0 h-16 glass-header z-40 px-4 lg:px-6 flex items-center justify-between gap-6 transition-all duration-300 ${isScrolled ? 'scrolled' : ''}`}>
             
             {/* Left Portion of Header */}
             <div className="flex items-center min-w-0 shrink-0">
@@ -1575,12 +1576,12 @@ export default function App() {
                 onClick={() => handleNavigate('home')} 
                 className="lg:hidden flex items-center space-x-2 group cursor-pointer text-left select-none animate-fade-in"
               >
-                <div className="w-8.5 h-8.5 rounded-lg bg-indigo-600 flex items-center justify-center text-white transition group-hover:rotate-6">
+                <div className="w-8.5 h-8.5 rounded-xl brand-mark flex items-center justify-center text-white transition group-hover:scale-105">
                   <Brain className="w-5 h-5 fill-white" />
                 </div>
                 <div>
-                  <span className="text-sm font-black text-white tracking-wide block">AlgoLearn</span>
-                  <span className="text-[9px] text-gray-500 block leading-none font-medium">Làm chủ thuật toán</span>
+                  <span className="text-sm font-extrabold text-white tracking-tight block">AlgoLearn</span>
+                  <span className="text-[9px] text-violet-300/70 block leading-none font-medium tracking-wide">Làm chủ thuật toán</span>
                 </div>
               </button>
 
@@ -1589,7 +1590,7 @@ export default function App() {
                 <Brain className="w-4 h-4 text-indigo-400 shrink-0" />
                 <span>Không gian học tập</span>
                 <span className="text-slate-700">/</span>
-                <span className="text-white bg-slate-900/60 border border-slate-850 px-2.5 py-1 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis">
+                <span className="text-white glass-panel px-2.5 py-1 rounded-lg whitespace-nowrap overflow-hidden text-ellipsis">
                   {currentView === 'home' && "Dashboard / Trang Chủ"}
                   {currentView === 'theory' && "Lý Thuyết Thuật Toán"}
                   {currentView === 'ide' && "Cơ Khí Lập Trình IDE"}
@@ -1612,7 +1613,7 @@ export default function App() {
                     onClick={handleStreakClick}
                     whileHover={{ scale: 1.02, translateY: -1 }}
                     whileTap={{ scale: 0.98 }}
-                    className="group cursor-pointer flex items-center space-x-2 bg-gradient-to-r from-amber-500/10 to-amber-600/5 hover:from-amber-500/15 hover:to-amber-600/10 border border-amber-500/20 hover:border-amber-500/35 rounded-xl px-3.5 py-1.5 text-amber-400 relative overflow-hidden transition-all duration-200"
+                    className="group cursor-pointer flex items-center space-x-2 metric-chip metric-chip-gold rounded-xl px-3.5 py-1.5 text-amber-300 relative overflow-hidden transition-all duration-200"
                     title="Chuỗi ngày liên tục! Click để cấu hình."
                   >
                     <Flame className="w-4 h-4 fill-amber-500 text-amber-500 animate-pulse group-hover:scale-110 transition-transform" />
@@ -1634,10 +1635,10 @@ export default function App() {
                     onClick={() => setShowDailyGoalDetails(true)}
                     whileHover={{ scale: 1.02, translateY: -1 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`group cursor-pointer border rounded-xl px-3.5 py-1.5 flex items-center space-x-2 transition-all duration-200 ${
+                    className={`group cursor-pointer metric-chip rounded-xl px-3.5 py-1.5 flex items-center space-x-2 transition-all duration-200 ${
                       dailyCompleted >= dailyGoal 
-                        ? 'bg-emerald-500/5 border-emerald-500/25 text-emerald-400 hover:border-emerald-500/40' 
-                        : 'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/35 text-indigo-400'
+                        ? 'metric-chip-gold text-emerald-300' 
+                        : 'metric-chip-violet text-violet-300'
                     }`}
                     title="Mục tiêu bài đọc! Click để cấu hình."
                   >
@@ -1651,7 +1652,7 @@ export default function App() {
                   </motion.button>
 
                   {/* XP Progress Indicator */}
-                  <div className="bg-slate-900/40 border border-slate-900/60 rounded-xl px-3.5 py-1.5 flex items-center space-x-2 font-sans text-indigo-300">
+                  <div className="metric-chip metric-chip-violet rounded-xl px-3.5 py-1.5 flex items-center space-x-2 font-sans text-violet-200">
                     <Award className="w-4 h-4 text-indigo-300 animate-bounce" />
                     <span className="text-xs font-mono font-black">{(currentUser ? currentUser.xp : userXp).toLocaleString()} XP</span>
                   </div>
@@ -1719,19 +1720,19 @@ export default function App() {
           </header>
 
           {/* 2. Premium Desktop Sidebar (lg:flex) */}
-          <aside id="main_desktop_sidebar" className="hidden lg:flex flex-col fixed top-0 left-0 bottom-0 w-64 min-w-[256px] max-w-[256px] bg-[#090b0f]/95 border-r border-slate-900 z-40 p-5 justify-between select-none overflow-y-auto scrollbar-thin">
+          <aside id="main_desktop_sidebar" className="hidden lg:flex flex-col fixed top-0 left-0 bottom-0 w-64 min-w-[256px] max-w-[256px] glass-sidebar z-40 p-5 justify-between select-none overflow-y-auto scrollbar-thin">
             {/* Top Branding Section */}
             <div className="space-y-6">
               <button 
                 onClick={() => handleNavigate('home')} 
-                className="flex items-center space-x-3 group cursor-pointer text-left w-full pb-5 border-b border-slate-900/40"
+                className="flex items-center space-x-3 group cursor-pointer text-left w-full pb-5 border-b border-white/[0.06]"
               >
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white transition duration-300 group-hover:rotate-12 group-hover:scale-105 shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+                <div className="w-10 h-10 rounded-xl brand-mark flex items-center justify-center text-white transition duration-300 group-hover:scale-105">
                   <Brain className="w-6 h-6 fill-white" />
                 </div>
                 <div>
-                  <span className="text-lg font-black text-white tracking-wider block">AlgoLearn</span>
-                  <span className="text-[10px] text-indigo-400 block leading-none font-semibold uppercase tracking-widest mt-0.5">Làm chủ thuật toán</span>
+                  <span className="text-lg font-extrabold text-white tracking-tight block">AlgoLearn</span>
+                  <span className="text-[10px] gradient-text-gold block leading-none font-semibold uppercase tracking-widest mt-0.5">Premium Edition</span>
                 </div>
               </button>
 
@@ -1754,10 +1755,10 @@ export default function App() {
                       <button
                         key={item.id}
                         onClick={() => handleNavigate(item.id as any)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 select-none cursor-pointer group/btn ${
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 select-none cursor-pointer group/btn ${
                           isActive 
-                            ? 'bg-indigo-650 text-white shadow-[0_4px_12px_rgba(79,70,229,0.25)] border-l-3 border-indigo-400' 
-                            : 'text-gray-400 hover:text-white hover:bg-slate-900/60'
+                            ? 'nav-item-active' 
+                            : 'text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center space-x-3">

@@ -287,21 +287,22 @@ export default function LandingGate({ onAuthSuccess }: LandingGateProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-gray-100 flex flex-col relative font-sans antialiased" id="landing_gate_container">
+    <div className="min-h-screen premium-app text-gray-100 flex flex-col relative font-sans antialiased" id="landing_gate_container">
+      <div className="premium-ambient" aria-hidden="true" />
       {/* Dynamic ambient background glowing */}
       <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
         <div className="relative left-[calc(50%-11rem)] aspect-1155/678 w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#3b82f6] to-[#8b5cf6] opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"></div>
       </div>
 
       {/* Guest Navbar Header */}
-      <header className="h-16 border-b border-slate-900/60 px-4 md:px-8 flex items-center justify-between relative z-10 bg-slate-950/40 backdrop-blur-md">
+      <header className="h-16 border-b border-white/[0.06] px-4 md:px-8 flex items-center justify-between relative z-10 glass-header">
         <div className="flex items-center space-x-2.5 select-none text-left">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+          <div className="w-9 h-9 rounded-xl brand-mark flex items-center justify-center text-white">
             <Brain className="w-5.5 h-5.5 fill-white" />
           </div>
           <div>
-            <span className="text-base font-black text-white tracking-wide block">AlgoLearn</span>
-            <span className="text-[10px] text-gray-500 block leading-none font-medium">Hành Trình Chinh Phục Thuật Toán</span>
+            <span className="text-base font-extrabold text-white tracking-tight block">AlgoLearn</span>
+            <span className="text-[10px] gradient-text-gold block leading-none font-medium">Premium Edition</span>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -311,14 +312,14 @@ export default function LandingGate({ onAuthSuccess }: LandingGateProps) {
               clearForm();
               setIsAuthModalOpen(true);
             }}
-            className="inline-flex items-center space-x-1 bg-indigo-500/10 hover:bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 font-bold text-xs p-2 px-3.5 rounded-xl transition-all cursor-pointer"
+            className="btn-premium-outline inline-flex items-center space-x-1 text-violet-200 font-semibold text-xs p-2 px-3.5 rounded-xl transition-all cursor-pointer"
           >
             <LogIn className="w-3.5 h-3.5" />
-            <span>Khu Xác Thực</span>
+            <span>Đăng nhập</span>
           </button>
-          <div className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-xl">
-            <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
-            Guest Mode
+          <div className="text-xs font-mono font-semibold text-emerald-300/90 metric-chip px-3 py-1 rounded-xl">
+            <span className="inline-block w-1.5 h-1.5 bg-emerald-400 rounded-full mr-2 animate-pulse"></span>
+            Online
           </div>
         </div>
       </header>
@@ -336,19 +337,19 @@ export default function LandingGate({ onAuthSuccess }: LandingGateProps) {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 rounded-full px-4 py-1.5 text-xs text-indigo-300 font-medium"
+                className="inline-flex items-center space-x-2 pill-badge rounded-full px-4 py-1.5 text-xs font-semibold"
               >
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>NỀN TẢNG HỌC THUẬT TOÁN THẾ HỆ MỚI</span>
+                <Sparkles className="w-4 h-4 text-violet-300" />
+                <span>Nền tảng học thuật toán thế hệ mới</span>
               </motion.div>
 
               <motion.h1 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
-                className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white"
+                className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1]"
               >
-                Làm chủ <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">thuật toán</span>,
+                Làm chủ <span className="gradient-text-premium">thuật toán</span>,
                 <br />chinh phục tương lai IT
               </motion.h1>
 
@@ -356,7 +357,7 @@ export default function LandingGate({ onAuthSuccess }: LandingGateProps) {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="text-gray-400 text-base md:text-lg leading-relaxed max-w-2xl"
+                className="text-gray-400/90 text-base md:text-lg leading-relaxed max-w-2xl font-light"
               >
                 Học cấu trúc dữ liệu và giải thuật (DSA) hoàn toàn trực quan qua đồ họa chuyển động, thử thách 1v1 thời gian thực và sự trợ giúp tức thì từ trí tuệ nhân tạo.
               </motion.p>

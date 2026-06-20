@@ -179,15 +179,15 @@ export default function LeaderboardView({
   const selfElo = selfEntry?.elo ?? selfEntry?.xp ?? 1200;
 
   return (
-    <div id="leaderboard_container" className="min-h-[calc(100vh-4rem)] bg-slate-950 text-gray-200 font-sans flex flex-col pb-36 sm:pb-48">
+    <div id="leaderboard_container" className="min-h-[calc(100vh-4rem)] premium-app text-gray-200 font-sans flex flex-col pb-36 sm:pb-48 relative">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-10 w-full flex-1 flex flex-col space-y-10 text-left">
         
         {/* Leaderboard Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-900">
           <div>
-            <div className="inline-flex items-center space-x-2 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-full px-3 py-1 text-xs font-semibold mb-3">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span>SẢNH VINH DANH ALGOLEARN</span>
+            <div className="inline-flex items-center space-x-2 pill-badge rounded-full px-3 py-1 text-xs font-semibold mb-3">
+              <Trophy className="w-4 h-4 text-amber-300" />
+              <span>Sảnh vinh danh AlgoLearn</span>
             </div>
             <h1 className="text-3xl font-extrabold text-white">
               {boardMode === 'arena' ? 'Bảng xếp hạng Arena 1v1' : 'Bảng xếp hạng Toàn quốc'}

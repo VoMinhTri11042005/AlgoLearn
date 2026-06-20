@@ -13,14 +13,14 @@ export default function ResultModal({ type, onClose, onNavigateHome, onNavigateT
   const isVictory = type === 'victory';
 
   return (
-    <div id="result_screen_modal" className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div id="result_screen_modal" className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4">
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={`max-w-xl w-full border rounded-2xl p-8 relative max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin text-left shadow-2xl ${
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className={`max-w-xl w-full rounded-3xl p-8 relative max-h-[85vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin text-left shimmer-border ${
           isVictory 
-            ? 'bg-gradient-to-b from-indigo-950/20 via-slate-900 to-slate-900 border-indigo-500/20 shadow-indigo-600/10' 
-            : 'bg-[#0b141a] border-cyan-800/30'
+            ? 'glass-panel border-violet-500/20' 
+            : 'glass-panel border-rose-500/15'
         }`}
       >
         {/* Shiny abstract visual background patterns */}
@@ -34,7 +34,7 @@ export default function ResultModal({ type, onClose, onNavigateHome, onNavigateT
             <motion.div 
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ repeat: Infinity, duration: 4 }}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center shadow-lg border border-yellow-300 relative"
+              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-600 text-slate-950 flex items-center justify-center shadow-lg relative"
             >
               <Trophy className="w-8 h-8 text-slate-950" />
               <span className="absolute -top-1 -right-1 bg-white text-indigo-600 rounded-full p-0.5 shadow">
@@ -47,8 +47,8 @@ export default function ResultModal({ type, onClose, onNavigateHome, onNavigateT
             </div>
           )}
 
-          <h2 className={`text-3xl font-black tracking-tight mt-6 ${
-            isVictory ? 'text-amber-400' : 'text-cyan-400'
+          <h2 className={`text-3xl font-extrabold tracking-tight mt-6 ${
+            isVictory ? 'gradient-text-gold' : 'text-rose-300'
           }`}>
             {isVictory ? 'VICTORY!' : 'DEFEAT'}
           </h2>

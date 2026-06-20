@@ -333,7 +333,7 @@ export default function HomeView({
 
 
   return (
-    <div id="home_container" className="text-gray-100 min-h-[calc(100vh-4rem)] bg-slate-950 font-sans pb-36 sm:pb-48">
+    <div id="home_container" className="text-gray-100 min-h-[calc(100vh-4rem)] premium-app font-sans pb-36 sm:pb-48 relative">
       {/* Hero Section */}
       <div className="relative overflow-hidden pt-12 pb-20 md:pb-28">
         <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
@@ -348,19 +348,19 @@ export default function HomeView({
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 rounded-full px-4 py-1.5 text-xs text-indigo-300 font-medium"
+                className="inline-flex items-center space-x-2 pill-badge rounded-full px-4 py-1.5 text-xs font-semibold"
               >
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>NỀN TẢNG HỌC THUẬT TOÁN THẾ HỆ MỚI</span>
+                <Sparkles className="w-4 h-4 text-violet-300" />
+                <span>Nền tảng học thuật toán thế hệ mới</span>
               </motion.div>
 
               <motion.h1 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
-                className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight"
+                className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1]"
               >
-                Làm chủ <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">thuật toán</span>,
+                Làm chủ <span className="gradient-text-premium">thuật toán</span>,
                 <br />chinh phục tương lai IT
               </motion.h1>
 
@@ -368,7 +368,7 @@ export default function HomeView({
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-2xl"
+                className="text-gray-400/90 text-lg md:text-xl leading-relaxed max-w-2xl font-light"
               >
                 Học cấu trúc dữ liệu và giải thuật (DSA) hoàn toàn trực quan qua đồ họa chuyển động, thử thách 1v1 thời gian thực và sự trợ giúp tức thì từ trí tuệ nhân tạo.
               </motion.p>
@@ -394,7 +394,7 @@ export default function HomeView({
                     }}
                     onFocus={() => setIsSearchFocused(true)}
                     placeholder="Tìm nhanh thuật toán, lý thuyết, cấu trúc dữ liệu... (ví dụ: Big O, Quick Sort, BFS)"
-                    className="block w-full pl-11 pr-12 py-3.5 bg-slate-900/90 border border-slate-800 focus:border-indigo-500 rounded-2xl text-sm text-gray-100 placeholder-slate-400 outline-none transition-all duration-300 shadow-xl focus:shadow-indigo-500/5 focus:ring-1 focus:ring-indigo-500/50"
+                    className="block w-full pl-11 pr-12 py-3.5 glass-input rounded-2xl text-sm text-gray-100 placeholder-slate-500 outline-none transition-all duration-300"
                   />
                   {searchQuery && (
                     <button
@@ -423,7 +423,7 @@ export default function HomeView({
                         setSearchQuery(chip.query);
                         setIsSearchFocused(true);
                       }}
-                      className="text-[10.5px] bg-[#121624] hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/30 text-slate-300 hover:text-indigo-400 px-2.5 py-1 rounded-lg transition duration-200 select-none font-semibold cursor-pointer"
+                      className="text-[10.5px] glass-panel hover:border-violet-500/25 text-slate-300 hover:text-violet-300 px-2.5 py-1 rounded-lg transition duration-200 select-none font-medium cursor-pointer"
                     >
                       {chip.label}
                     </button>
@@ -438,7 +438,7 @@ export default function HomeView({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute z-50 left-0 right-0 mt-2 bg-[#090d16] border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden max-h-[380px] flex flex-col"
+                      className="absolute z-50 left-0 right-0 mt-2 glass-panel rounded-2xl shadow-2xl overflow-hidden max-h-[380px] flex flex-col border border-white/[0.08]"
                     >
                       {/* Dropdown Header */}
                       <div className="p-3 bg-slate-950 border-b border-slate-900 text-xs font-bold text-slate-500 flex items-center justify-between">
@@ -898,24 +898,24 @@ export default function HomeView({
       {/* Grid of features */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-900/60 relative">
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <h2 className="text-xs uppercase tracking-widest text-indigo-400 font-semibold">CÔNG CỤ HỌC TẬP ĐỈNH CAO CHO DEV VIỆT</h2>
-          <p className="text-3xl md:text-4xl font-extrabold text-white">Chúng tôi định nghĩa lại cách bạn tiếp thu Thuật Toán</p>
-          <p className="text-gray-400">Không còn phải vật lộn với những dòng mã khô khan trên sách vở. Trực quan hóa mọi thứ trong môi trường tối tân nhất.</p>
+          <p className="section-label">Công cụ học tập đỉnh cao cho dev Việt</p>
+          <p className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Chúng tôi định nghĩa lại cách bạn tiếp thu Thuật Toán</p>
+          <p className="text-gray-400/90 font-light">Không còn phải vật lộn với những dòng mã khô khan trên sách vở. Trực quan hóa mọi thứ trong môi trường tối tân nhất.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feat, idx) => (
             <motion.div 
               key={idx}
-              whileHover={{ y: -5, borderColor: 'rgba(99, 102, 241, 0.4)' }}
-              className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 text-left relative group transition-all duration-300"
+              whileHover={{ y: -6 }}
+              className="glass-card rounded-2xl p-6 text-left relative group"
             >
-              <div className="inline-flex p-3 bg-slate-950 border border-slate-800 rounded-xl mb-5 text-indigo-400 transition-colors group-hover:bg-indigo-550/10">
+              <div className="inline-flex p-3 glass-panel rounded-xl mb-5 text-violet-300 transition-colors group-hover:text-violet-200">
                 {feat.icon}
               </div>
-              <h3 className="text-lg font-bold text-gray-100 mb-2">{feat.title}</h3>
-              <p className="text-sm text-gray-400 leading-relaxed mb-4">{feat.desc}</p>
-              <span className="absolute top-4 right-4 bg-indigo-500/10 text-indigo-300 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-indigo-500/20">
+              <h3 className="text-lg font-bold text-white mb-2">{feat.title}</h3>
+              <p className="text-sm text-gray-400/90 leading-relaxed mb-4 font-light">{feat.desc}</p>
+              <span className="absolute top-4 right-4 pill-badge text-[10px] font-semibold px-2 py-0.5 rounded-full">
                 {feat.badge}
               </span>
             </motion.div>
@@ -928,47 +928,45 @@ export default function HomeView({
       {/* Call To Action Box */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
         <motion.div 
-          whileHover={{ shadow: '0 25px 50px -12px rgba(99, 102, 241, 0.15)' }}
-          className="bg-gradient-to-r from-blue-900/40 via-indigo-900/40 to-purple-900/40 border border-indigo-500/30 rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
+          whileHover={{ y: -2 }}
+          className="glass-panel border border-violet-500/15 rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
         >
-          {/* Grid lines or graphics behind */}
-          <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-40"></div>
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-60"></div>
           
           <div className="max-w-3xl mx-auto space-y-6 relative z-10">
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white">Sẵn sàng nâng tầm tư duy lập trình?</h2>
-            <p className="text-gray-300 md:text-lg max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">Sẵn sàng nâng tầm tư duy lập trình?</h2>
+            <p className="text-gray-400/90 md:text-lg max-w-2xl mx-auto font-light">
               Chỉ cần 15 phút mỗi ngày cùng các bài học trực quan và trận đấu đối kháng, bạn sẽ làm chủ hoàn toàn các cấu trúc dữ liệu kinh điển nhất.
             </p>
             <div className="pt-4 flex flex-wrap justify-center gap-4">
               <button 
                 onClick={() => onNavigate('theory')}
-                className="bg-white hover:bg-slate-100 text-slate-950 font-bold px-8 py-4 rounded-xl active:scale-95 transition cursor-pointer shadow-xl flex items-center space-x-1"
+                className="btn-premium text-white font-bold px-8 py-4 rounded-xl active:scale-95 transition cursor-pointer flex items-center space-x-1"
               >
                 <span>Học thuật toán ngay</span>
-                <ChevronRight className="w-4 h-4 text-slate-950" />
+                <ChevronRight className="w-4 h-4" />
               </button>
               <button 
                 onClick={() => onNavigate('arena')}
-                className="bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 font-bold px-8 py-4 rounded-xl active:scale-95 transition cursor-pointer flex items-center space-x-2"
+                className="btn-premium-outline text-violet-200 font-bold px-8 py-4 rounded-xl active:scale-95 transition cursor-pointer flex items-center space-x-2"
               >
                 <span>Đấu 1v1 nhanh</span>
-                <Trophy className="w-4 h-4 text-indigo-400" />
+                <Trophy className="w-4 h-4 text-violet-300" />
               </button>
             </div>
           </div>
           
-          {/* Extra shiny floating blobs */}
-          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 h-48 bg-blue-500/20 blur-3xl rounded-full"></div>
-          <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-purple-500/20 blur-3xl rounded-full"></div>
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 h-48 bg-violet-500/10 blur-3xl rounded-full"></div>
+          <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-amber-500/8 blur-3xl rounded-full"></div>
         </motion.div>
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-12 text-sm text-gray-500">
+      <footer className="border-t border-white/[0.06] py-12 text-sm text-gray-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 text-left">
           <div className="space-y-4">
             <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+              <div className="w-8 h-8 rounded-lg brand-mark flex items-center justify-center text-white">
                 <Brain className="w-5 h-5" />
               </div>
               <span className="text-base font-extrabold text-white tracking-tight">AlgoLearn</span>
