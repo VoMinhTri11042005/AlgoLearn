@@ -271,7 +271,7 @@ class Solution:
           const winnerIsPlayer = data.result?.winnerId === currentUserId;
           onOpenResult(winnerIsPlayer ? 'victory' : 'defeat', {
             playerName: currentUser?.name,
-            opponentName: matchState?.opponent?.name || data.opponent?.name || 'Đối thủ',
+            opponentName: opponent?.name || data.opponent?.name || 'Đối thủ',
             playerPassCount: data.progress?.player || 0,
             opponentPassCount: data.progress?.opponent || 0
           });
@@ -341,7 +341,7 @@ class Solution:
       }
       onOpenResult(data.winnerIsSender ? 'victory' : 'defeat', {
         playerName: currentUser?.name,
-        opponentName: matchState?.opponent?.name || 'Đối thủ',
+        opponentName: opponent?.name || 'Đối thủ',
         playerPassCount: data.progress?.player || 0,
         opponentPassCount: data.progress?.opponent || 0
       });
