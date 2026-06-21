@@ -1789,7 +1789,7 @@ except Exception as e:
             name: user.name,
             avatar: user.avatar,
             school: user.school,
-            status: presence.status,
+            status: inMatch ? 'in-game' : presence.status,
           });
         }
       }
@@ -1972,7 +1972,8 @@ except Exception as e:
 
     if (runningMatch) {
       const opponentId = runningMatch.playerId === userId ? runningMatch.opponentId : runningMatch.playerId;
-      const opponent = dbAny.users?.find((u: any) => u.id === opponentId) || null;
+      const allUsers = await getDBUsers();
+      const opponent = allUsers.find((u: any) => u.id === opponentId) || null;
       const playerRating = getArenaRatingFromState(dbAny, runningMatch.playerId);
       const opponentRating = runningMatch.opponentId ? getArenaRatingFromState(dbAny, runningMatch.opponentId) : null;
 
@@ -2076,7 +2077,8 @@ except Exception as e:
 
     // Prepare opponent info
     const opponentId = match.playerId === userId ? match.opponentId : match.playerId;
-    const opponent = dbAny.users?.find((u: any) => u.id === opponentId) || null;
+    const allUsers = await getDBUsers();
+    const opponent = allUsers.find((u: any) => u.id === opponentId) || null;
     const playerRating = getArenaRatingFromState(dbAny, match.playerId);
     const opponentRating = match.opponentId ? getArenaRatingFromState(dbAny, match.opponentId) : null;
 
@@ -2291,7 +2293,7 @@ except Exception as e:
     const ratings = Array.isArray(dbAny.arena_ratings) ? (dbAny.arena_ratings as ArenaRating[]) : [];
 
     // Ensure all users have a rating for consistent leaderboard
-    const users: DBUser[] = dbAny.users || [];
+    const users: DBUser[] = await getDBUsers();
     for (const u of users) {
       getArenaRatingFromState(dbAny, u.id);
     }
