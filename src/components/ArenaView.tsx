@@ -266,7 +266,8 @@ class Solution:
         }
 
         if (data.status === 'finished') {
-          setQueueState('idle');
+          setQueueState('lobby');
+          setMatchId(null);
           const winnerIsPlayer = data.result?.winnerId === currentUserId;
           onOpenResult(winnerIsPlayer ? 'victory' : 'defeat', {
             playerName: currentUser?.name,
