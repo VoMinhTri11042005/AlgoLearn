@@ -14,7 +14,7 @@ import 'prismjs/themes/prism-tomorrow.css';
 
 interface ArenaViewProps {
   onNavigate: (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard') => void;
-  onOpenResult: (resultType: 'victory' | 'defeat') => void;
+  onOpenResult: (resultType: 'victory' | 'defeat', data?: any) => void;
   currentUser: any; 
   pendingRoomCode?: string | null;
   setPendingRoomCode?: (code: string | null) => void;
@@ -268,7 +268,12 @@ class Solution:
         if (data.status === 'finished') {
           setQueueState('idle');
           const winnerIsPlayer = data.result?.winnerId === currentUserId;
-          onOpenResult(winnerIsPlayer ? 'victory' : 'defeat');
+          onOpenResult(winnerIsPlayer ? 'victory' : 'defeat', {
+            playerName: currentUser?.name,
+            opponentName: matchState?.opponent?.name || data.opponent?.name || 'Đối thủ',
+            playerPassCount: data.progress?.player || 0,
+            opponentPassCount: data.progress?.opponent || 0
+          });
         }
       } catch {
         // ignore transient errors
@@ -333,7 +338,12 @@ class Solution:
         }));
         hasDispatchedPracticeRef.current = true;
       }
-      onOpenResult(data.winnerIsPlayer ? 'victory' : 'defeat');
+      onOpenResult(data.winnerIsPlayer ? 'victory' : 'defeat', {
+        playerName: currentUser?.name,
+        opponentName: matchState?.opponent?.name || 'Đối thủ',
+        playerPassCount: data.progress?.player || 0,
+        opponentPassCount: data.progress?.opponent || 0
+      });
     } catch (e) {
       setIsEvaluating(false);
       setResultsLogs(prev => [
@@ -448,9 +458,14 @@ class Solution:
                         </div>
                         <button 
                           onClick={() => inviteUser(u.id)}
-                          className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md font-semibold transition-colors"
+                          disabled={u.status === 'in-game'}
+                          className={`text-xs px-3 py-1.5 rounded-md font-semibold transition-colors ${
+                            u.status === 'in-game' 
+                              ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                          }`}
                         >
-                          Mời
+                          {u.status === 'in-game' ? 'Đang trận' : 'Mời'}
                         </button>
                       </div>
                     ))

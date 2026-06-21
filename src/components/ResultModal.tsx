@@ -4,12 +4,16 @@ import { Trophy, RefreshCw, LogOut, Code, AlertTriangle, Sparkles, CheckCircle2,
 
 interface ResultModalProps {
   type: 'victory' | 'defeat';
+  playerName: string;
+  opponentName: string;
+  playerPassCount: number;
+  opponentPassCount: number;
   onClose: () => void;
   onNavigateHome: () => void;
   onNavigateTheory: () => void;
 }
 
-export default function ResultModal({ type, onClose, onNavigateHome, onNavigateTheory }: ResultModalProps) {
+export default function ResultModal({ type, playerName, opponentName, playerPassCount, opponentPassCount, onClose, onNavigateHome, onNavigateTheory }: ResultModalProps) {
   const isVictory = type === 'victory';
 
   return (
@@ -65,16 +69,16 @@ export default function ResultModal({ type, onClose, onNavigateHome, onNavigateT
             <div>
               <p className="text-gray-500">WINNER:</p>
               <p className={`font-bold text-sm ${isVictory ? 'text-white' : 'text-slate-400'}`}>
-                {isVictory ? 'Minh Hoàng (Bạn)' : 'CodeMaster_99'}
+                {isVictory ? `${playerName} (Bạn)` : opponentName}
               </p>
-              <p className="text-[10px] text-gray-500">Testcases: 5/5 passed</p>
+              <p className="text-[10px] text-gray-500">Testcases: {isVictory ? playerPassCount : opponentPassCount}/5 passed</p>
             </div>
             <div className="text-right">
               <p className="text-gray-500">LOSER:</p>
               <p className={`font-bold text-sm ${!isVictory ? 'text-white' : 'text-slate-400'}`}>
-                {!isVictory ? 'Minh Hoàng (Bạn)' : 'ProCoder_Felix'}
+                {!isVictory ? `${playerName} (Bạn)` : opponentName}
               </p>
-              <p className="text-[10px] text-gray-500">Testcases: {isVictory ? '3/5' : '4/5'} passed</p>
+              <p className="text-[10px] text-gray-500">Testcases: {isVictory ? opponentPassCount : playerPassCount}/5 passed</p>
             </div>
           </div>
 

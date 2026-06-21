@@ -35,6 +35,7 @@ const getLocalDateString = (date: Date) => {
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'theory' | 'ide' | 'arena' | 'leaderboard' | 'admin'>('home');
   const [resultModalType, setResultModalType] = useState<'victory' | 'defeat' | null>(null);
+  const [resultModalData, setResultModalData] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isQuickNotesOpen, setIsQuickNotesOpen] = useState(false);
@@ -1541,8 +1542,9 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenResultSim = (type: 'victory' | 'defeat') => {
+  const handleOpenResultSim = (type: 'victory' | 'defeat', data?: any) => {
     setResultModalType(type);
+    setResultModalData(data);
   };
 
   // Keyboard navigation shortcuts listener
@@ -2285,7 +2287,14 @@ export default function App() {
       {resultModalType && (
         <ResultModal 
           type={resultModalType} 
-          onClose={() => setResultModalType(null)} 
+          playerName={resultModalData?.playerName || currentUser?.name || 'Bạn'}
+          opponentName={resultModalData?.opponentName || 'Đối thủ'}
+          playerPassCount={resultModalData?.playerPassCount || 0}
+          opponentPassCount={resultModalData?.opponentPassCount || 0}
+          onClose={() => {
+            setResultModalType(null);
+            setResultModalData(null);
+          }} 
           onNavigateHome={() => handleNavigate('home')}
           onNavigateTheory={() => handleNavigate('theory')}
         />

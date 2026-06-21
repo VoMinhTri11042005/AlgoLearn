@@ -1766,18 +1766,23 @@ except Exception as e:
     res.json({ status: 'ok', invites: myInvites });
   });
 
-  app.get('/api/presence/online', requireAuth, (req, res) => {
+  app.get('/api/presence/online', requireAuth, async (req, res) => {
     const userId = req.session?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const now = Date.now();
     const onlineUsers: any[] = [];
     const dbAny: any = getArenaStateLocal();
+    const allUsers = await getDBUsers();
 
     for (const [uid, presence] of userPresenceMap.entries()) {
       if (uid !== userId && (now - presence.lastSeen <= 15000)) {
-        const user = dbAny.users?.find((u: any) => u.id === uid);
+        const user = allUsers.find((u: any) => u.id === uid);
         if (user) {
+          const inMatch = dbAny.arena_matches?.some((m: any) => 
+            (m.playerId === uid || m.opponentId === uid) && m.status === 'running'
+          );
+
           onlineUsers.push({
             id: user.id,
             name: user.name,
@@ -1851,14 +1856,22 @@ except Exception as e:
     res.json({ status: 'joined', matchId: match.id });
   });
 
-  app.post('/api/arena/room/invite', requireAuth, (req, res) => {
+  app.post('/api/arena/room/invite', requireAuth, async (req, res) => {
     const userId = req.session?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const { targetUserId, roomCode } = req.body;
     if (!targetUserId || !roomCode) return res.status(400).json({ error: 'Missing targetUserId or roomCode' });
 
     const dbAny: any = getArenaStateLocal();
-    const user = dbAny.users?.find((u: any) => u.id === userId);
+    const targetInMatch = dbAny.arena_matches?.some((m: any) => 
+      (m.playerId === targetUserId || m.opponentId === targetUserId) && m.status === 'running'
+    );
+    if (targetInMatch) {
+      return res.status(400).json({ error: 'Người chơi này đang trong trận đấu khác' });
+    }
+
+    const allUsers = await getDBUsers();
+    const user = allUsers.find((u: any) => u.id === userId);
     
     activeInvites.push({
       id: `inv_${Date.now()}_${Math.random().toString(36).substring(7)}`,
