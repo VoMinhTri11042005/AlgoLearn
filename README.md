@@ -1,222 +1,109 @@
 # 🧠 AlgoLearn — Nền Tảng Học Thuật Toán & Cấu Trúc Dữ Liệu Trực Quan
 
-> **Đồ án cá nhân** của **Võ Minh Trí** — Sinh viên Đại học Công nghiệp TP.HCM (IUH)
+> **Đồ án cá nhân xuất sắc** của **Võ Minh Trí** — Sinh viên Đại học Công nghiệp TP.HCM (IUH)
+> 
+> Một dự án tâm huyết kết hợp giữa kiến thức nền tảng về Cấu trúc Dữ liệu & Giải thuật với những công nghệ web hiện đại, mang đến trải nghiệm học tập gamification sáng tạo.
 >
 > 🔗 **Live Demo**: [https://algolearn-ji1m.onrender.com](https://algolearn-ji1m.onrender.com)
 
-**AlgoLearn** là nền tảng web học và thực hành Cấu trúc Dữ liệu & Giải thuật (CTDL&GT) được xây dựng với giao diện trực quan sinh động, tích hợp AI thông minh, hệ thống thi đấu 1v1 và gamification — giúp việc học thuật toán trở nên hào hứng và hiệu quả hơn.
+**AlgoLearn** là nền tảng giáo dục tương tác chuyên sâu, được thiết kế và phát triển độc lập nhằm giải quyết bài toán "khô khan" khi học thuật toán. Hệ thống nổi bật với giao diện dark mode hiện đại, tích hợp AI thông minh, cơ chế thi đấu 1v1 (Arena) thời gian thực và mô phỏng từng bước (step-by-step visualizer) trực quan.
 
 ---
 
-## 📸 Ảnh Chụp Màn Hình
+## 📸 Giao Diện Trực Quan
 
-| Trang Chủ | IDE & Mô Phỏng | Đấu Trường 1v1 |
+| Trang Chủ (Dashboard) | IDE & Mô Phỏng (Visualizer) | Đấu Trường 1v1 (Arena) |
 |:---------:|:--------------:|:--------------:|
-| Dashboard học tập, streak, XP | Code editor + Step Visualizer | Arena combat real-time |
+| Hệ thống học tập, streak, XP | Môi trường code tích hợp mô phỏng | Thi đấu thuật toán real-time |
 
 ---
 
-## ✨ Tính Năng Nổi Bật
+## ✨ Điểm Nhấn Công Nghệ & Tính Năng
 
-### 🎯 Bảng Điều Khiển Học Tập (Dashboard)
-- Lộ trình bài giảng dạng sơ đồ cây trực quan từ cơ bản đến nâng cao
-- Hệ thống **Daily Streak**, tích lũy **XP**, biểu đồ thống kê tiến trình học tập
-- Mục tiêu hàng ngày và theo dõi hoạt động
+### ⚔️ Đấu Trường 1v1 (Real-time Arena Combat)
+- **Kiến trúc Server-side Evaluation:** Xây dựng sandbox Python độc lập để chấm điểm code trực tiếp từ người dùng với độ trễ thấp.
+- **Matchmaking & Auto Bot:** Thuật toán tự động ghép cặp người chơi có Elo tương đương; tự động triển khai Bot AI nếu hàng đợi quá 5 giây.
+- **Hệ thống Elo:** Tích hợp công thức tính điểm Elo chuẩn xác tương tự các nền tảng thi đấu cờ vua, cập nhật tức thời (Real-time) sau mỗi trận.
 
-### 📖 Bài Học Lý Thuyết & Chế Độ Tập Trung
-- Giáo trình Markdown biên soạn chi tiết, hỗ trợ code highlighting
-- Tích hợp **sóng não tập trung (Binaural Beats)** qua Tone.js giúp tăng hiệu quả học tập
+### 💻 IDE Lập Trình & Mô Phỏng Thuật Toán Hiện Đại
+- Xây dựng **Trình soạn thảo Code (Code Editor)** ngay trên nền web hỗ trợ syntax highlighting bằng PrismJS.
+- Thiết kế hệ thống **Step-by-Step Visualizer** — engine mô phỏng hoạt họa chuyên sâu giúp người học "nhìn thấy" cách thuật toán (như Quick Sort, Merge Sort) thực thi trong bộ nhớ.
+- Xử lý Testcase động, cung cấp feedback chi tiết (Expected vs Actual).
 
-### 💻 IDE Lập Trình & Mô Phỏng Thuật Toán
-- Code editor tích hợp với syntax highlighting (PrismJS)
-- Chạy thử **Testcase thực tế** với phản hồi Expected vs Actual
-- **Step-by-Step Visualizer** — mô phỏng hoạt họa từng bước của thuật toán sắp xếp (Quick Sort, Bubble Sort, Merge Sort...)
+### 🤖 Tích Hợp Google Gemini AI
+- Trợ lý AI học tập thông minh: Hỗ trợ phân tích độ phức tạp thời gian/không gian ($O(n), O(1)$), giải thích code lỗi và đưa ra gợi ý tối ưu (hints) mà không tiết lộ hoàn toàn đáp án.
 
-### ⚔️ Đấu Trường 1v1 (Arena Combat)
-- Thi đấu real-time giải bài thuật toán với người chơi khác hoặc Bot AI
-- **Python Sandbox** — chấm bài thực tế qua sandbox server-side
-- **Auto Bot Matchmaking** — tự động ghép Bot nếu chờ > 5 giây
-- Hệ thống **Elo Rating** cập nhật sau mỗi trận đấu
-- Bảng xếp hạng Đấu trường riêng biệt
-
-### 🏆 Bảng Xếp Hạng (Leaderboard)
-- Bảng vàng XP toàn quốc + Bảng xếp hạng Elo Đấu trường
-- Hiển thị trường học, danh hiệu (Badge) và thống kê chi tiết
-- Hỗ trợ lọc theo tuần, tìm kiếm theo tên
-
-### 🤖 Trợ Lý AI Thông Minh (Gemini AI)
-- Tích hợp **Google Gemini API** giải thích code, tối ưu thuật toán
-- Phân tích độ phức tạp thời gian & không gian
-- Chat hỗ trợ học tập ngay trong ứng dụng
-
-### 🔐 Hệ Thống Quản Trị (Admin Dashboard)
-- Quản lý Syllabus: thêm/sửa bài học, code mẫu, độ khó
-- Quản lý học viên, phân quyền Admin
-- Cấu hình kết nối PostgreSQL từ giao diện
+### 🎮 Gamification & Retention (Tương tác người dùng)
+- **Hệ thống Daily Streak & Bảng Xếp Hạng:** Kích thích động lực học tập qua cơ chế cạnh tranh.
+- **Bảo hiểm Chuỗi (Streak Freeze):** Cơ chế kinh tế trong game cho phép người dùng đổi XP lấy quyền bảo vệ chuỗi ngày học tập.
+- Ứng dụng **Sóng não tập trung (Binaural Beats)** bằng Web Audio API (Tone.js) nhằm tăng cường hiệu suất học tập.
 
 ---
 
-## 🛠️ Công Nghệ Sử Dụng
+## 🛠️ Kiến Trúc & Công Nghệ Cốt Lõi
 
-### Frontend
-| Công nghệ | Mục đích |
-|---|---|
-| React 19 + TypeScript | Framework UI |
-| Vite | Build tool & dev server |
-| Tailwind CSS 4 | Styling responsive |
-| Framer Motion | Animations & transitions |
-| Tone.js | Binaural beats & audio cues |
-| PrismJS + react-simple-code-editor | Code editor & highlighting |
-| Recharts | Biểu đồ thống kê |
-| Lucide React | Icon library |
+Dự án được xây dựng toàn diện từ Frontend đến Backend (Full-stack), áp dụng tư duy thiết kế hệ thống có khả năng mở rộng.
 
-### Backend
-| Công nghệ | Mục đích |
-|---|---|
-| Node.js + Express.js | API server |
-| TypeScript + tsx/esbuild | Dev & production build |
-| PostgreSQL + Drizzle ORM | Database chính |
-| db.json (fs) | Database fallback (không cần PostgreSQL) |
-| Google Gemini API (@google/genai) | AI chatbot |
-| Python3 (sandbox) | Chấm bài Arena 1v1 |
-| express-session | Xác thực phiên người dùng |
+**Frontend:**
+- **Core:** React 19, TypeScript, Vite
+- **Styling:** Tailwind CSS 4, Framer Motion (cho micro-interactions mượt mà)
+- **Audio & Visual:** Tone.js (Binaural Beats), PrismJS, Recharts
 
-### DevOps
-| Công nghệ | Mục đích |
-|---|---|
-| Docker + Docker Compose | Containerization |
-| Render.com | Cloud deployment |
-| GitHub | Version control |
+**Backend:**
+- **Server:** Node.js, Express.js (TypeScript)
+- **Database:** PostgreSQL + Drizzle ORM (hỗ trợ fallback db.json local)
+- **Execution Engine:** Python3 Sandbox Environment
+- **Authentication:** Express-session (bảo mật HttpOnly, SameSite)
+- **AI Integration:** Google GenAI SDK
+
+**DevOps & Deployment:**
+- **Containerization:** Docker & Docker Compose (Multi-stage build kết hợp Node + Python)
+- **CI/CD & Cloud:** Triển khai tự động trên Render.com
 
 ---
 
-## 📁 Cấu Trúc Dự Án
+## 🚀 Hướng Dẫn Khởi Chạy Local
 
-```
-AlgoLearn/
-├── server.ts                    # Express server + API endpoints
-├── package.json                 # Dependencies & scripts
-├── Dockerfile                   # Multi-stage Docker build (Node + Python)
-├── docker-compose.yml           # App + PostgreSQL containers
-├── db.json                      # Local JSON database fallback
-├── vite.config.ts               # Vite build config
-├── tsconfig.json                # TypeScript config
-├── .env.example                 # Biến môi trường mẫu
-│
-├── src/                         # Frontend source
-│   ├── App.tsx                  # Root component, routing, state
-│   ├── main.tsx                 # React entry point
-│   ├── index.css                # Global styles (Tailwind)
-│   ├── types.ts                 # TypeScript interfaces
-│   ├── utils/
-│   │   └── audio.ts             # Audio engine (Tone.js, Web Audio)
-│   └── components/
-│       ├── LandingGate.tsx      # Trang chào mừng
-│       ├── HomeView.tsx         # Dashboard học tập
-│       ├── TheoryView.tsx       # Đọc lý thuyết + binaural beats
-│       ├── IdeView.tsx          # IDE + Step Visualizer
-│       ├── ArenaView.tsx        # Đấu trường 1v1
-│       ├── LeaderboardView.tsx  # Bảng xếp hạng
-│       ├── AdminView.tsx        # Admin dashboard
-│       ├── AuthModal.tsx        # Đăng ký / Đăng nhập
-│       ├── EditProfileModal.tsx # Chỉnh sửa hồ sơ
-│       ├── QuickNotesSidebar.tsx # Sổ ghi chú nhanh
-│       └── ResultModal.tsx      # Modal kết quả trận đấu
-│
-└── temp_arena/                  # Thư mục tạm cho Python sandbox
-```
-
----
-
-## 🚀 Hướng Dẫn Cài Đặt & Chạy
-
-### Yêu cầu
-- **Node.js** >= 20 (khuyên dùng 22 LTS)
-- **Python 3** (cho tính năng Arena sandbox)
-- **Docker** (tùy chọn, cho deployment)
-
-### Cài đặt & Chạy Development
+Khuyến nghị sử dụng **Node.js 22 LTS** và cài đặt sẵn **Python 3**.
 
 ```bash
-# 1. Clone dự án
+# 1. Clone repository
 git clone https://github.com/VoMinhTri11042005/AlgoLearn.git
 cd AlgoLearn
 
-# 2. Cài đặt dependencies
+# 2. Cài đặt các gói phụ thuộc
 npm install
 
-# 3. Cấu hình biến môi trường
+# 3. Cấu hình môi trường
 cp .env.example .env
-# Mở file .env và thêm GEMINI_API_KEY (lấy tại https://aistudio.google.com)
+# Chỉnh sửa file .env và bổ sung GEMINI_API_KEY (Lấy tại aistudio.google.com)
 
-# 4. Chạy development server
+# 4. Khởi chạy Development Server
 npm run dev
 ```
-
-Truy cập: **http://localhost:3000**
-
-### Build Production
-
-```bash
-npm run build    # Build cả frontend (Vite) và backend (esbuild)
-npm start        # Chạy production server
-```
+Truy cập ứng dụng tại: **http://localhost:3000**
 
 ---
 
-## 🐳 Triển Khai Docker
+## 🐳 Khởi Chạy Bằng Docker (Recommended)
+
+Để môi trường chạy ổn định nhất và có sẵn PostgreSQL:
 
 ```bash
-# Build và chạy cả App + PostgreSQL
 docker compose up -d --build
 ```
-
-Hệ thống sẽ khởi tạo:
-- **`algolearn-app-container`** — Ứng dụng chạy trên port `3000`
-- **`algolearn-db-container`** — PostgreSQL database trên port `5432`
-
-Truy cập: **http://localhost:3000**
-
-### Biến môi trường Docker
-
-| Biến | Mô tả | Mặc định |
-|---|---|---|
-| `PORT` | Port server | `3000` |
-| `NODE_ENV` | Môi trường | `production` |
-| `DATABASE_URL` | PostgreSQL connection string | Auto (docker-compose) |
-| `GEMINI_API_KEY` | Google Gemini API key | — |
-| `SESSION_SECRET` | Secret cho session cookie | `dev_session_secret_change_me` |
+- Ứng dụng (App) chạy tại port `3000`
+- Cơ sở dữ liệu (PostgreSQL) chạy tại port `5432`
 
 ---
 
-## ☁️ Deploy Lên Cloud
+## 👤 Về Tác Giả
 
-Dự án đã được deploy thành công trên **Render.com**:
-
-1. Kết nối GitHub repo với Render
-2. Tạo **Web Service** → chọn Runtime: **Docker**
-3. Thêm biến môi trường (`GEMINI_API_KEY`, `DATABASE_URL`, `SESSION_SECRET`)
-4. Deploy tự động mỗi khi push code lên `main`
-
-> Các nền tảng khác hỗ trợ: **Google Cloud Run**, **Railway.app**, **Fly.io**
+**Võ Minh Trí**
+- 🎓 Sinh viên tại **Đại học Công nghiệp TP.HCM (IUH)**
+- 💻 Đam mê xây dựng các sản phẩm phần mềm mang lại giá trị thực tiễn, đặc biệt trong lĩnh vực EdTech (Công nghệ giáo dục).
+- 🔗 **GitHub Profile:** [@VoMinhTri11042005](https://github.com/VoMinhTri11042005)
 
 ---
 
-## 👤 Thông Tin Tác Giả
-
-| | |
-|---|---|
-| **Họ và tên** | Võ Minh Trí |
-| **MSSV** | — |
-| **Trường** | Đại học Công nghiệp TP.HCM (IUH) |
-| **GitHub** | [@VoMinhTri11042005](https://github.com/VoMinhTri11042005) |
-
----
-
-## 📄 License
-
-Dự án được phát triển phục vụ mục đích học tập và nghiên cứu cá nhân.
-
----
-
-*Được xây dựng với ❤️ bởi Võ Minh Trí — IUH*
+*Dự án tâm huyết này là minh chứng cho nỗ lực tự học, nghiên cứu và khả năng làm chủ công nghệ Full-stack.*

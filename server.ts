@@ -93,6 +93,10 @@ interface ArenaMatch {
   playerPassCount?: number;
   opponentPassCount?: number;
   isOpponentBot?: boolean;
+  roomCode?: string;
+  isCustomRoom?: boolean;
+  playerSabotage?: { type: string, expiresAt: string } | null;
+  opponentSabotage?: { type: string, expiresAt: string } | null;
 }
 
 interface ArenaRating {
@@ -987,7 +991,8 @@ async function startServer() {
       cookie: {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        // Auto-detect secure: true only in true production environments (like Render)
+        secure: process.env.NODE_ENV === 'production' && process.env.RENDER === 'true',
         maxAge: 1000 * 60 * 60 * 24 * 7,
       },
     })
@@ -1642,6 +1647,22 @@ except Exception as e:
 
   const queueJoinTimes: Record<string, number> = {};
 
+  interface UserPresence {
+    lastSeen: number;
+    status: 'online' | 'in_match' | 'idle';
+  }
+  const userPresenceMap = new Map<string, UserPresence>();
+
+  interface ArenaInvite {
+    id: string;
+    fromUserId: string;
+    fromUserName: string;
+    toUserId: string;
+    roomCode: string;
+    createdAt: number;
+  }
+  let activeInvites: ArenaInvite[] = [];
+
   const ensureMatchOpponentPairing = (dbAny: any) => {
     // Pair FIFO for MVP, but avoid pairing same user.
     const queue = dbAny.arena_queue as string[];
@@ -1721,6 +1742,160 @@ except Exception as e:
       opponentElo: Math.round(newOpponent),
     };
   };
+
+  // --- PRESENCE & ROOM APIS ---
+  app.post('/api/presence/heartbeat', requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    userPresenceMap.set(userId, {
+      lastSeen: Date.now(),
+      status: 'online',
+    });
+
+    const now = Date.now();
+    for (const [uid, presence] of userPresenceMap.entries()) {
+      if (now - presence.lastSeen > 60000) {
+        userPresenceMap.delete(uid);
+      }
+    }
+
+    activeInvites = activeInvites.filter(inv => now - inv.createdAt < 60000);
+    const myInvites = activeInvites.filter(inv => inv.toUserId === userId);
+
+    res.json({ status: 'ok', invites: myInvites });
+  });
+
+  app.get('/api/presence/online', requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const now = Date.now();
+    const onlineUsers: any[] = [];
+    const dbAny: any = getArenaStateLocal();
+
+    for (const [uid, presence] of userPresenceMap.entries()) {
+      if (uid !== userId && (now - presence.lastSeen <= 15000)) {
+        const user = dbAny.users?.find((u: any) => u.id === uid);
+        if (user) {
+          onlineUsers.push({
+            id: user.id,
+            name: user.name,
+            avatar: user.avatar,
+            school: user.school,
+            status: presence.status,
+          });
+        }
+      }
+    }
+
+    res.json({ users: onlineUsers });
+  });
+
+  app.post('/api/arena/room/create', requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const dbAny: any = getArenaStateLocal();
+    const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    const newMatch: ArenaMatch = {
+      id: `match_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      createdAt: new Date().toISOString(),
+      status: 'waiting',
+      playerId: userId,
+      opponentId: null,
+      roomCode,
+      isCustomRoom: true,
+    };
+
+    (dbAny.arena_matches as ArenaMatch[]).push(newMatch);
+    persistArenaLocal(dbAny);
+
+    res.json({ status: 'created', roomCode, matchId: newMatch.id });
+  });
+
+  app.post('/api/arena/room/join', requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { roomCode } = req.body;
+    console.log(`[JOIN] userId=${userId} roomCode=${roomCode}`);
+    if (!roomCode) return res.status(400).json({ error: 'roomCode required' });
+
+    const dbAny: any = getArenaStateLocal();
+    const match = (dbAny.arena_matches as ArenaMatch[]).find(
+      (m: ArenaMatch) => m.roomCode === roomCode.toUpperCase() && m.status === 'waiting'
+    );
+
+    if (!match) {
+      console.log(`[JOIN] Failed: Match not found for roomCode=${roomCode.toUpperCase()}. Matches in db:`, (dbAny.arena_matches as ArenaMatch[]).map(m => ({ id: m.id, roomCode: m.roomCode, status: m.status })));
+      return res.status(404).json({ error: 'Không tìm thấy phòng hoặc phòng đã bắt đầu.' });
+    }
+    if (match.playerId === userId) {
+      console.log(`[JOIN] Failed: User is already the host of this room.`);
+      return res.json({ status: 'joined', matchId: match.id }); 
+    }
+
+    match.opponentId = userId;
+    match.status = 'running';
+    match.opponentAssignedAt = new Date().toISOString();
+    
+    const pRating = getArenaRatingFromState(dbAny, match.playerId);
+    const oRating = getArenaRatingFromState(dbAny, match.opponentId);
+    match.eloBefore = { player: pRating.elo, opponent: oRating.elo };
+
+    persistArenaLocal(dbAny);
+    activeInvites = activeInvites.filter(inv => inv.roomCode !== roomCode);
+
+    console.log(`[JOIN] Success! matchId=${match.id} playerId=${match.playerId} opponentId=${match.opponentId}`);
+    res.json({ status: 'joined', matchId: match.id });
+  });
+
+  app.post('/api/arena/room/invite', requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { targetUserId, roomCode } = req.body;
+    if (!targetUserId || !roomCode) return res.status(400).json({ error: 'Missing targetUserId or roomCode' });
+
+    const dbAny: any = getArenaStateLocal();
+    const user = dbAny.users?.find((u: any) => u.id === userId);
+    
+    activeInvites.push({
+      id: `inv_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      fromUserId: userId,
+      fromUserName: user?.name || 'Người chơi',
+      toUserId: targetUserId,
+      roomCode,
+      createdAt: Date.now()
+    });
+
+    res.json({ status: 'invited' });
+  });
+
+  app.post('/api/arena/room/respond', requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { inviteId, accept } = req.body;
+    console.log(`[RESPOND] userId=${userId} inviteId=${inviteId} accept=${accept}`);
+    
+    const inviteIdx = activeInvites.findIndex(i => i.id === inviteId);
+    if (inviteIdx === -1) {
+      console.log(`[RESPOND] Invite not found: ${inviteId}. Current invites:`, activeInvites);
+      return res.status(404).json({ error: 'Invite not found or expired' });
+    }
+    
+    const invite = activeInvites[inviteIdx];
+    activeInvites.splice(inviteIdx, 1);
+
+    if (!accept) {
+      console.log(`[RESPOND] Invite rejected: ${inviteId}`);
+      return res.json({ status: 'rejected' });
+    }
+    
+    console.log(`[RESPOND] Invite accepted! roomCode=${invite.roomCode}`);
+    res.json({ status: 'accepted', roomCode: invite.roomCode });
+  });
+  // --- END PRESENCE & ROOM APIS ---
 
   // POST /api/arena/queue/join
   app.post('/api/arena/queue/join', requireAuth, async (req, res) => {
@@ -1829,7 +2004,7 @@ except Exception as e:
 
       persistArenaLocal(dbAny);
 
-      return res.json({
+      const payload = {
         status: runningMatch.status === 'finished' ? 'finished' : 'running',
         matchId: runningMatch.id,
         opponent: opponent ? publicUser(opponent) : null,
@@ -1844,8 +2019,22 @@ except Exception as e:
           total: 5,
         },
         isOpponentBot: runningMatch.isOpponentBot || false,
+        sabotage: (() => {
+          const sab = runningMatch.playerId === userId ? runningMatch.playerSabotage : runningMatch.opponentSabotage;
+          if (!sab) return null;
+          const expiresMs = new Date(sab.expiresAt).getTime();
+          if (expiresMs > Date.now()) {
+            return sab;
+          }
+          return null;
+        })(),
         result: runningMatch.status === 'finished' ? { winnerId: runningMatch.winnerId, playerResult: runningMatch.playerResult, opponentResult: runningMatch.opponentResult } : null,
-      });
+      };
+      
+      if (payload.sabotage) {
+        console.log(`[GET STATUS] userId=${userId} matchId=${runningMatch.id} SENDING SABOTAGE:`, payload.sabotage);
+      }
+      return res.json(payload);
     }
 
     const queued = (dbAny.arena_queue as string[]).includes(userId);
@@ -1918,7 +2107,7 @@ except Exception as e:
 
     persistArenaLocal(dbAny);
 
-    return res.json({
+    const payload = {
       matchId: match.id,
       status: match.status,
       opponent: match.opponentId && opponent ? publicUser(opponent) : null,
@@ -1933,8 +2122,24 @@ except Exception as e:
         total: 5,
       },
       isOpponentBot: match.isOpponentBot || false,
+      sabotage: (() => {
+        const sab = match.playerId === userId ? match.playerSabotage : match.opponentSabotage;
+        if (!sab) return null;
+        const expiresMs = new Date(sab.expiresAt).getTime();
+        if (expiresMs > Date.now()) {
+          return sab;
+        }
+        return null;
+      })(),
       result: match.status === 'finished' ? { winnerId: match.winnerId, playerResult: match.playerResult, opponentResult: match.opponentResult } : null,
-    });
+    };
+    
+    // Log if there's an active sabotage being sent down to either player
+    if (payload.sabotage) {
+      console.log(`[GET MATCH] userId=${userId} matchId=${match.id} SENDING SABOTAGE:`, payload.sabotage);
+    }
+    
+    return res.json(payload);
   });
 
   // POST /api/arena/match/:matchId/submit
@@ -2035,6 +2240,34 @@ except Exception as e:
       logs: sandboxResult.logs,
       results: sandboxResult.results,
     });
+  });
+
+  // POST /api/arena/match/:matchId/sabotage
+  app.post('/api/arena/match/:matchId/sabotage', requireAuth, async (req, res) => {
+    const matchId = req.params.matchId;
+    const { type } = req.body || {};
+    const userId = req.session?.userId;
+    console.log(`[SABOTAGE] userId=${userId} matchId=${matchId} type=${type}`);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!type) return res.status(400).json({ error: 'type required' });
+
+    const dbAny: any = getArenaStateLocal();
+    const match = (dbAny.arena_matches as ArenaMatch[]).find((m: ArenaMatch) => m.id === matchId);
+    if (!match) return res.status(404).json({ error: 'match not found' });
+    if (match.status !== 'running') return res.status(400).json({ error: 'match not running' });
+    if (match.playerId !== userId && match.opponentId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    const isPlayer = match.playerId === userId;
+    const sabotage = { type, expiresAt: new Date(Date.now() + 7000).toISOString() };
+    if (isPlayer) {
+      match.opponentSabotage = sabotage; // apply to opponent
+    } else {
+      match.playerSabotage = sabotage; // apply to player
+    }
+    console.log(`[SABOTAGE] applied sabotage to ${isPlayer ? 'opponent' : 'player'}:`, sabotage);
+
+    persistArenaLocal(dbAny);
+    res.json({ status: 'ok' });
   });
 
   // GET /api/arena/leaderboard
@@ -2141,8 +2374,15 @@ Context of Current Screen/Lesson: ${context || "Trang lý thuyết Quick Sort"}.
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      }
+    }));
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

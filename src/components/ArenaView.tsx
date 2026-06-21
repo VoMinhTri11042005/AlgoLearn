@@ -15,25 +15,27 @@ import 'prismjs/themes/prism-tomorrow.css';
 interface ArenaViewProps {
   onNavigate: (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard') => void;
   onOpenResult: (resultType: 'victory' | 'defeat') => void;
+  currentUser: any; 
+  pendingRoomCode?: string | null;
+  setPendingRoomCode?: (code: string | null) => void;
 }
 
-export default function ArenaView({ onNavigate, onOpenResult }: ArenaViewProps) {
+export default function ArenaView({ onNavigate, onOpenResult, currentUser, pendingRoomCode, setPendingRoomCode }: ArenaViewProps) {
   const [matchId, setMatchId] = useState<string | null>(null);
-  const [queueState, setQueueState] = useState<'idle' | 'queued' | 'running' | 'error'>('idle');
+  const [queueState, setQueueState] = useState<'lobby' | 'queued' | 'running' | 'error'>('lobby');
   const [opponent, setOpponent] = useState<{ id: string; name: string; school: string; avatar: string } | null>(null);
   const [arenaElo, setArenaElo] = useState<{ player?: number; opponent?: number }>({});
+
+  const [roomCode, setRoomCode] = useState<string>('');
+  const [inputRoomCode, setInputRoomCode] = useState<string>('');
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
-  const currentUser = (() => {
-    try {
-      const saved = localStorage.getItem('algolearn_current_user');
-      return saved ? JSON.parse(saved) as { id: string; name: string; school: string; avatar: string } : null;
-    } catch {
-      return null;
-    }
-  })();
+  const [activeSabotage, setActiveSabotage] = useState<'sương_mù' | null>(null);
+  const [incomingSabotage, setIncomingSabotage] = useState<'sương_mù' | null>(null);
+
   const currentUserId = currentUser?.id || null;
 
 
@@ -59,7 +61,6 @@ class Solution:
 
   const [opponentTestcaseProgress, setOpponentTestcaseProgress] = useState(0);
   const hasDispatchedPracticeRef = useRef(false);
-  const [activeSabotage, setActiveSabotage] = useState<string | null>(null);
   const [showAiHint, setShowAiHint] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [resultsLogs, setResultsLogs] = useState<string[]>([]);
@@ -80,10 +81,26 @@ class Solution:
     return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const handleTriggerPowerUp = (type: 'fog' | 'auto' | 'ai') => {
+  const handleTriggerPowerUp = async (type: 'fog' | 'auto' | 'ai') => {
     playAudioCue('swap');
     if (type === 'fog') {
       setActiveSabotage('sương_mù');
+      console.log('TRIGGERING FOG SABOTAGE. matchId =', matchId);
+      if (matchId) {
+        console.log('SENDING FETCH...');
+        fetch(`/api/arena/match/${matchId}/sabotage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'sương_mù' }),
+          credentials: 'include'
+        }).then(async r => {
+          console.log('FETCH RESPONSE:', r.status, await r.text());
+        }).catch((err) => {
+          console.error('FETCH FAILED:', err);
+        });
+      } else {
+        console.warn('CANNOT SEND SABOTAGE: matchId is null!');
+      }
       setTimeout(() => {
         setActiveSabotage(null);
       }, 7000);
@@ -122,10 +139,14 @@ class Solution:
   };
 
   useEffect(() => {
-    // Auto join when view mounts
-    joinQueue();
+    // Join pending room if any
+    if (pendingRoomCode) {
+      joinRoom(pendingRoomCode);
+      if (setPendingRoomCode) setPendingRoomCode(null);
+    }
+    
     return () => {
-      if (!currentUserId) return;
+      if (!currentUserId || queueState === 'lobby') return;
       fetch('/api/arena/queue/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,7 +155,69 @@ class Solution:
       }).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pendingRoomCode]);
+
+  const createRoom = async () => {
+    try {
+      const r = await fetch('/api/arena/room/create', { method: 'POST', credentials: 'include' });
+      const data = await r.json();
+      if (data.status === 'created') {
+        setRoomCode(data.roomCode);
+        setMatchId(data.matchId);
+        setQueueState('queued');
+      }
+    } catch(e) {}
+  };
+
+  const joinRoom = async (code: string) => {
+    if (!code) return;
+    try {
+      const r = await fetch('/api/arena/room/join', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ roomCode: code }),
+        credentials: 'include' 
+      });
+      const data = await r.json();
+      if (data.status === 'joined') {
+        setMatchId(data.matchId);
+        setQueueState('running');
+      } else {
+        setJoinError(data.error);
+        setQueueState('error');
+      }
+    } catch(e) {}
+  };
+
+  const inviteUser = async (targetUserId: string) => {
+    if (!roomCode) return;
+    try {
+      await fetch('/api/arena/room/invite', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ targetUserId, roomCode }),
+        credentials: 'include'
+      });
+      alert('Đã gửi lời mời thành công!');
+    } catch(e) {}
+  };
+
+  useEffect(() => {
+    if (queueState !== 'lobby' && !roomCode) return;
+    let alive = true;
+    const fetchOnline = async () => {
+      try {
+        const r = await fetch('/api/presence/online', { credentials: 'include' });
+        const data = await r.json();
+        if (alive && data.users) {
+          setOnlineUsers(data.users);
+        }
+      } catch (e) {}
+    };
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 5000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [queueState, roomCode]);
 
   useEffect(() => {
     let alive = true;
@@ -169,6 +252,12 @@ class Solution:
           // Sync opponent progress from server
           if (data.progress && typeof data.progress.opponent === 'number') {
             setOpponentTestcaseProgress(data.progress.opponent);
+          }
+          // Sync incoming sabotage (server now handles expiry reliably)
+          if (data.sabotage && data.sabotage.type) {
+            setIncomingSabotage(data.sabotage.type as any);
+          } else {
+            setIncomingSabotage(null);
           }
         }
 
@@ -258,11 +347,134 @@ class Solution:
   return (
     <div id="arena_layout" className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#07090d] text-gray-200 font-sans flex flex-col">
 
+      {queueState === 'lobby' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-xl w-full flex flex-col gap-8 shadow-2xl">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+                <Swords className="w-8 h-8 text-indigo-500" /> Sảnh Chờ Đấu Trường
+              </h2>
+              <p className="text-slate-400 text-sm">Chọn chế độ tham gia đấu trường 1v1 để rèn luyện thuật toán.</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button 
+                onClick={joinQueue}
+                className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 group"
+              >
+                <Zap className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                Tìm Ngẫu Nhiên
+              </button>
+              <button 
+                onClick={createRoom}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Key className="w-5 h-5" />
+                Tạo Phòng Kín
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input 
+                type="text" 
+                placeholder="Nhập mã phòng 5 ký tự..." 
+                maxLength={5}
+                value={inputRoomCode}
+                onChange={e => setInputRoomCode(e.target.value.toUpperCase())}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 uppercase font-mono text-center tracking-widest"
+              />
+              <button 
+                onClick={() => joinRoom(inputRoomCode)}
+                disabled={inputRoomCode.length < 5}
+                className="bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all"
+              >
+                Vào
+              </button>
+            </div>
+
+            <div className="mt-4 border-t border-slate-800 pt-6">
+              <h3 className="text-left font-bold text-slate-300 mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Người chơi đang Online ({onlineUsers.length})
+              </h3>
+              <div className="flex flex-col gap-3 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                {onlineUsers.length === 0 ? (
+                  <p className="text-slate-500 text-sm">Chưa có ai khác đang online lúc này.</p>
+                ) : (
+                  onlineUsers.map(u => (
+                    <div key={u.id} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800">
+                      <div className="flex items-center gap-3 text-left">
+                        <img src={u.avatar} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700" />
+                        <div>
+                          <div className="font-semibold text-white text-sm">{u.name}</div>
+                          <div className="text-xs text-slate-500">{u.school}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {queueState === 'queued' && (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
           <Swords className="w-12 h-12 text-indigo-400 animate-pulse" />
-          <h2 className="text-xl font-bold text-white">Đang tìm đối thủ...</h2>
-          <p className="text-sm text-gray-500 max-w-md">Hệ thống đang ghép bạn với người chơi khác. Nếu không có ai sau 5 giây, bot sẽ tham gia trận đấu.</p>
+          {roomCode ? (
+            <>
+              <h2 className="text-2xl font-bold text-white">Phòng Kín Của Bạn</h2>
+              <div className="bg-slate-900 border border-indigo-500/30 px-8 py-4 rounded-xl flex items-center justify-center">
+                <span className="text-4xl font-mono tracking-[0.5em] text-indigo-400 font-black">{roomCode}</span>
+              </div>
+              <p className="text-sm text-gray-500 max-w-md">Hãy gửi mã này cho bạn bè hoặc mời những người đang online để bắt đầu trận đấu.</p>
+              
+              <div className="mt-8 w-full max-w-md">
+                <h3 className="text-left font-bold text-slate-300 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Mời bạn bè Online ({onlineUsers.length})
+                </h3>
+                <div className="flex flex-col gap-3 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {onlineUsers.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-left">Không có ai online để mời.</p>
+                  ) : (
+                    onlineUsers.map(u => (
+                      <div key={u.id} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <div className="flex items-center gap-3 text-left">
+                          <img src={u.avatar} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700" />
+                          <div>
+                            <div className="font-semibold text-white text-sm">{u.name}</div>
+                            <div className="text-xs text-slate-500 truncate w-32">{u.school}</div>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => inviteUser(u.id)}
+                          className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md font-semibold transition-colors"
+                        >
+                          Mời
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  fetch('/api/arena/queue/leave', { method: 'POST', body: JSON.stringify({ userId: currentUserId }), headers: {'Content-Type': 'application/json'}, credentials: 'include' });
+                  setQueueState('lobby');
+                  setRoomCode('');
+                }}
+                className="mt-4 text-rose-400 hover:text-rose-300 text-sm transition-colors"
+              >
+                Hủy phòng
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-bold text-white">Đang tìm đối thủ...</h2>
+              <p className="text-sm text-gray-500 max-w-md">Hệ thống đang ghép bạn với người chơi khác. Nếu không có ai sau 5 giây, bot sẽ tham gia trận đấu.</p>
+            </>
+          )}
           {joinError && <p className="text-rose-400 text-sm">{joinError}</p>}
         </div>
       )}
@@ -400,6 +612,13 @@ class Solution:
 
           {/* Interactive Code Editor with VS Code custom colored highlighting */}
           <div className="flex-1 relative flex h-full min-h-0 overflow-y-auto bg-[#090b0e]">
+            {incomingSabotage === 'sương_mù' && (
+              <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center">
+                <ShieldAlert className="w-16 h-16 text-indigo-500 animate-pulse mb-4" />
+                <h3 className="text-xl font-bold text-red-400 mb-2 uppercase tracking-widest text-shadow-glow">CẢNH BÁO: MÀN SƯƠNG MÙ</h3>
+                <p className="text-gray-300">Đối thủ đã dùng thẻ cấm lên bạn!</p>
+              </div>
+            )}
             {/* Simulated Line numbers */}
             <div className="w-10 bg-[#07090d]/65 border-r border-[#1a1f2c]/50 text-right pr-2 select-none text-[11px] font-mono text-slate-500 pt-4 leading-[23px] font-medium text-left shrink-0">
               {Array.from({ length: Math.max(solution.split('\n').length, 1) }).map((_, i) => (

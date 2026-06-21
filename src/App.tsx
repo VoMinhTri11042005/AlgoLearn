@@ -39,6 +39,9 @@ export default function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isQuickNotesOpen, setIsQuickNotesOpen] = useState(false);
 
+  const [pendingRoomCode, setPendingRoomCode] = useState<string | null>(null);
+  const [incomingInvites, setIncomingInvites] = useState<any[]>([]);
+
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
     try {
@@ -66,6 +69,66 @@ export default function App() {
       window.removeEventListener('mousemove', handleMouseMove);
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const doHeartbeat = () => {
+      fetch('/api/presence/heartbeat', { method: 'POST', credentials: 'include' })
+        .then(r => {
+          if (r.status === 401) {
+            // Virtual session detected (server restarted) -> auto logout
+            setCurrentUser(null);
+            localStorage.removeItem('algolearn_current_user');
+            setUserRole('user');
+            localStorage.setItem('algolearn_user_role', 'user');
+            alert("Phiên đăng nhập đã hết hạn do máy chủ cập nhật. Vui lòng đăng nhập lại!");
+            return { status: 'error' };
+          }
+          return r.json();
+        })
+        .then(data => {
+          if (data.status === 'ok' && data.invites) {
+            setIncomingInvites(data.invites);
+          }
+        })
+        .catch(() => {});
+    };
+
+    const interval = setInterval(doHeartbeat, 5000);
+    doHeartbeat(); // initial heartbeat
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        doHeartbeat();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [currentUser]);
+
+  const handleRespondInvite = async (inviteId: string, accept: boolean) => {
+    try {
+      const r = await fetch('/api/arena/room/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteId, accept }),
+        credentials: 'include',
+      });
+      const data = await r.json();
+      if (accept && data.status === 'accepted') {
+        setPendingRoomCode(data.roomCode);
+        setCurrentView('arena');
+      }
+      setIncomingInvites(prev => prev.filter(i => i.id !== inviteId));
+    } catch (e) {
+      console.error('Lỗi khi phản hồi lời mời:', e);
+    }
+  };
 
   // Experience and progress states
   const [userXp, setUserXp] = useState<number>(() => {
@@ -2196,7 +2259,7 @@ export default function App() {
         )}
         {currentView === 'theory' && <TheoryView onNavigate={handleNavigate} />}
         {currentView === 'ide' && <IdeView onNavigate={handleNavigate} />}
-        {currentView === 'arena' && <ArenaView onNavigate={handleNavigate} onOpenResult={handleOpenResultSim} />}
+        {currentView === 'arena' && <ArenaView onNavigate={handleNavigate} onOpenResult={handleOpenResultSim} currentUser={currentUser} pendingRoomCode={pendingRoomCode} setPendingRoomCode={setPendingRoomCode} />}
         {currentView === 'leaderboard' && (
           <LeaderboardView 
             onNavigate={handleNavigate} 
@@ -3507,6 +3570,53 @@ export default function App() {
           Alt+N
         </kbd>
       </motion.button>
+
+      {/* Incoming Invites Modal overlay */}
+      <AnimatePresence>
+        {incomingInvites.length > 0 && (
+          <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-3 max-w-sm w-full">
+            {incomingInvites.map((invite) => (
+              <motion.div 
+                key={invite.id}
+                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-slate-800 border-l-4 border-l-indigo-500 border border-slate-700/50 p-4 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-bold text-white flex items-center gap-2">
+                      <Swords className="w-4 h-4 text-indigo-400" />
+                      Lời mời Đấu Trường
+                    </h4>
+                    <p className="text-sm text-slate-300 mt-1">
+                      <strong className="text-indigo-300">{invite.fromUserName}</strong> đã mời bạn tham gia phòng đấu kín.
+                    </p>
+                  </div>
+                  <button onClick={() => handleRespondInvite(invite.id, false)} className="text-slate-400 hover:text-slate-200 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex gap-2 justify-end mt-1">
+                  <button 
+                    onClick={() => handleRespondInvite(invite.id, false)}
+                    className="px-4 py-1.5 rounded-lg text-sm font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                  >
+                    Từ chối
+                  </button>
+                  <button 
+                    onClick={() => handleRespondInvite(invite.id, true)}
+                    className="px-4 py-1.5 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Tham gia
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Floating Mouse pointer XP badges with physics upward waves */}
       <AnimatePresence shrink={false}>
