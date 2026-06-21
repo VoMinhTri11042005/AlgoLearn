@@ -1727,6 +1727,7 @@ except Exception as e:
     }
 
     dbAny.arena_queue = deduped;
+    persistArenaLocal(dbAny);
   };
 
   const eloUpdate = (playerElo: number, opponentElo: number, score: 1 | 0) => {
