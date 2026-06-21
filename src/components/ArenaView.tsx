@@ -329,7 +329,7 @@ class Solution:
         setArenaElo(data.eloAfter);
       }
       window.dispatchEvent(new CustomEvent('algolearn_award_xp', {
-        detail: { amount: data.rewardXp || (data.winnerIsPlayer ? 500 : 150) },
+        detail: { amount: data.rewardXp || (data.winnerIsSender ? 500 : 150) },
       }));
       playAudioCue('success');
       if (!hasDispatchedPracticeRef.current) {
@@ -338,7 +338,7 @@ class Solution:
         }));
         hasDispatchedPracticeRef.current = true;
       }
-      onOpenResult(data.winnerIsPlayer ? 'victory' : 'defeat', {
+      onOpenResult(data.winnerIsSender ? 'victory' : 'defeat', {
         playerName: currentUser?.name,
         opponentName: matchState?.opponent?.name || 'Đối thủ',
         playerPassCount: data.progress?.player || 0,

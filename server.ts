@@ -2205,8 +2205,9 @@ except Exception as e:
       });
     }
 
-    // All 5/5 passed → player wins this match
-    const playerWins = isSenderPlayer;
+    // All 5/5 passed → the sender wins this match
+    const senderWins = true; // The one who submits 5/5 first wins
+    const playerWins = isSenderPlayer ? senderWins : !senderWins;
     const playerResult: 'victory' | 'defeat' = playerWins ? 'victory' : 'defeat';
     const opponentResult: 'victory' | 'defeat' = playerWins ? 'defeat' : 'victory';
 
@@ -2233,7 +2234,7 @@ except Exception as e:
 
     match.status = 'finished';
     match.finishedAt = now;
-    match.winnerId = playerWins ? match.playerId : match.opponentId;
+    match.winnerId = isSenderPlayer ? match.playerId : match.opponentId;
     match.playerResult = playerResult;
     match.opponentResult = opponentResult;
     match.submittedBy = isSenderPlayer ? 'player' : 'opponent';
@@ -2245,10 +2246,10 @@ except Exception as e:
     return res.json({
       status: 'ok',
       winnerId: match.winnerId,
-      winnerIsPlayer: playerWins,
+      winnerIsSender: true,
       eloBefore: match.eloBefore,
       eloAfter: match.eloAfter,
-      rewardXp: playerWins ? 500 : 150,
+      rewardXp: senderWins ? 500 : 150,
       passedCount: sandboxResult.passedCount,
       totalCount: sandboxResult.totalCount,
       logs: sandboxResult.logs,
