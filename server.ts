@@ -97,6 +97,7 @@ interface ArenaMatch {
   isCustomRoom?: boolean;
   playerSabotage?: { type: string, expiresAt: string } | null;
   opponentSabotage?: { type: string, expiresAt: string } | null;
+  rejectedInvites?: string[];
 }
 
 interface ArenaRating {
@@ -1886,7 +1887,7 @@ except Exception as e:
     res.json({ status: 'invited' });
   });
 
-  app.post('/api/arena/room/respond', requireAuth, (req, res) => {
+  app.post('/api/arena/room/respond', requireAuth, async (req, res) => {
     const userId = req.session?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const { inviteId, accept } = req.body;
@@ -1903,6 +1904,18 @@ except Exception as e:
 
     if (!accept) {
       console.log(`[RESPOND] Invite rejected: ${inviteId}`);
+      
+      const dbAny: any = getArenaStateLocal();
+      const match = (dbAny.arena_matches as ArenaMatch[]).find((m: ArenaMatch) => m.roomCode === invite.roomCode);
+      if (match) {
+        if (!match.rejectedInvites) match.rejectedInvites = [];
+        const allUsers = await getDBUsers();
+        const rejecter = allUsers.find((u: any) => u.id === userId);
+        if (rejecter) {
+          match.rejectedInvites.push(rejecter.name);
+          persistArenaLocal(dbAny);
+        }
+      }
       return res.json({ status: 'rejected' });
     }
     
@@ -2148,6 +2161,7 @@ except Exception as e:
         return null;
       })(),
       result: match.status === 'finished' ? { winnerId: match.winnerId, playerResult: match.playerResult, opponentResult: match.opponentResult } : null,
+      rejectedInvites: match.rejectedInvites || [],
     };
     
     // Log if there's an active sabotage being sent down to either player

@@ -61,6 +61,7 @@ class Solution:
 
   const [opponentTestcaseProgress, setOpponentTestcaseProgress] = useState(0);
   const hasDispatchedPracticeRef = useRef(false);
+  const seenRejectionsRef = useRef<Set<string>>(new Set());
   const [showAiHint, setShowAiHint] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const hasSubmittedRef = useRef(false);
@@ -270,8 +271,18 @@ class Solution:
           }
         }
 
-        if (data.status === 'queued') {
-          setQueueState('queued');
+        if (data.status === 'queued' || data.status === 'waiting') {
+          if (data.status === 'queued') {
+            setQueueState('queued');
+          }
+          if (data.rejectedInvites && Array.isArray(data.rejectedInvites)) {
+            data.rejectedInvites.forEach((name: string) => {
+              if (!seenRejectionsRef.current.has(name)) {
+                seenRejectionsRef.current.add(name);
+                alert(`Người chơi ${name} đã từ chối lời mời của bạn.`);
+              }
+            });
+          }
         }
 
         if (data.status === 'finished') {
