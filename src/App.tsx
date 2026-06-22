@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 // gif.js ships without full TS typings; load it lazily to avoid worker URL issues.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let GIF: any;
-
 import { motion, AnimatePresence } from 'motion/react';
+import { Toaster } from 'react-hot-toast';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import HomeView from './components/HomeView';
 import TheoryView from './components/TheoryView';
@@ -33,7 +34,15 @@ const getLocalDateString = (date: Date) => {
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'theory' | 'ide' | 'arena' | 'leaderboard' | 'admin'>('home');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentViewPath = location.pathname === '/' ? 'home' : location.pathname.split('/')[1] || 'home';
+  const currentView = currentViewPath as 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard' | 'admin';
+  
+  const handleNavigate = (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard' | 'admin') => {
+    if (view === 'home') navigate('/');
+    else navigate(`/${view}`);
+  };
   const [resultModalType, setResultModalType] = useState<'victory' | 'defeat' | null>(null);
   const [resultModalData, setResultModalData] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -83,7 +92,7 @@ export default function App() {
             localStorage.removeItem('algolearn_current_user');
             setUserRole('user');
             localStorage.setItem('algolearn_user_role', 'user');
-            alert("Phiên đăng nhập đã hết hạn do máy chủ cập nhật. Vui lòng đăng nhập lại!");
+            toast.error("Phiên đăng nhập đã hết hạn do máy chủ cập nhật. Vui lòng đăng nhập lại!");
             return { status: 'error' };
           }
           return r.json();
@@ -123,7 +132,7 @@ export default function App() {
       const data = await r.json();
       if (accept && data.status === 'accepted') {
         setPendingRoomCode(data.roomCode);
-        setCurrentView('arena');
+        navigate('/arena');
       }
       setIncomingInvites(prev => prev.filter(i => i.id !== inviteId));
     } catch (e) {
@@ -622,7 +631,7 @@ export default function App() {
     const cost = 500;
     const currentXpVal = currentUser ? currentUser.xp : userXp;
     if (currentXpVal < cost) {
-      alert("Bạn không đủ XP! Hãy chăm chỉ giải toán hoặc học lý thuyết để đổi lấy Đóng băng chuỗi.");
+      toast.error("Bạn không đủ XP! Hãy chăm chỉ giải toán hoặc học lý thuyết để đổi lấy Đóng băng chuỗi.");
       return;
     }
 
@@ -1536,11 +1545,7 @@ export default function App() {
     updateCompletedHistory(todayStr, 0);
   };
 
-  const handleNavigate = (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard' | 'admin') => {
-    setCurrentView(view);
-    setMobileMenuOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+
 
   const handleOpenResultSim = (type: 'victory' | 'defeat', data?: any) => {
     setResultModalType(type);
@@ -1628,18 +1633,24 @@ export default function App() {
     };
   }, [currentUser, currentView]);
 
-  // Check if user is not authenticated: if so, force LandingGate immediately
   if (!currentUser) {
-    return <LandingGate onAuthSuccess={handleAuthSuccess} />;
+    return (
+      <>
+        <Toaster position="top-right" />
+        <LandingGate onAuthSuccess={handleAuthSuccess} />
+      </>
+    );
   }
 
   const isWorkspaceView = currentView === 'theory' || currentView === 'ide' || currentView === 'arena';
 
   return (
-    <div id="algolearn_root_wrapper" className={`min-h-screen premium-app text-gray-100 flex flex-col relative font-sans antialiased ${isWorkspaceView ? 'workspace-mode lg:h-screen lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'} ${isFocusMode ? 'focus-mode-active' : ''} ${isScrolled ? 'scrolled' : ''}`}>
-      <div className="premium-ambient" aria-hidden="true" />
-      
-      {/* Night Owl / Dark Reader Eye-Care Overlay Glass Filter */}
+    <>
+      <Toaster position="top-right" />
+      <div id="algolearn_root_wrapper" className={`min-h-screen premium-app text-gray-100 flex flex-col relative font-sans antialiased ${isWorkspaceView ? 'workspace-mode lg:h-screen lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'} ${isFocusMode ? 'focus-mode-active' : ''} ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="premium-ambient" aria-hidden="true" />
+        
+        {/* Night Owl / Dark Reader Eye-Care Overlay Glass Filter */}
       <AnimatePresence>
         {isNightOwlActive && (
           <motion.div 
@@ -2251,36 +2262,39 @@ export default function App() {
 
       {/* Main viewport Container screens */}
       <div className={`flex-1 w-full flex flex-col bg-slate-950 transition-all duration-300 ${!isFocusMode ? 'lg:pl-64 pt-16' : ''} ${isWorkspaceView ? 'lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
-        {currentView === 'home' && (
-          <HomeView 
-            onNavigate={handleNavigate} 
-            currentUser={currentUser}
-            onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            onLogout={handleLogout}
-          />
-        )}
-        {currentView === 'theory' && <TheoryView onNavigate={handleNavigate} />}
-        {currentView === 'ide' && <IdeView onNavigate={handleNavigate} />}
-        {currentView === 'arena' && <ArenaView onNavigate={handleNavigate} onOpenResult={handleOpenResultSim} currentUser={currentUser} pendingRoomCode={pendingRoomCode} setPendingRoomCode={setPendingRoomCode} />}
-        {currentView === 'leaderboard' && (
-          <LeaderboardView 
-            onNavigate={handleNavigate} 
-            onSelectArenaSimulation={handleOpenResultSim} 
-            weeklyHistory={getWeeklyHistory()}
-            dailyCompleted={dailyCompleted}
-            dailyGoal={dailyGoal}
-            onManualIncrement={handleManualIncrementProgress}
-            onManualDecrement={handleManualDecrementProgress}
-            currentUser={currentUser}
-          />
-        )}
-        {currentView === 'admin' && (
-          <AdminView 
-            onNavigate={handleNavigate} 
-            currentUserRole={userRole} 
-            onUpdateRole={handleUpdateRole} 
-          />
-        )}
+        <Routes>
+          <Route path="/" element={
+            <HomeView 
+              onNavigate={handleNavigate} 
+              currentUser={currentUser}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onLogout={handleLogout}
+            />
+          } />
+          <Route path="/theory/*" element={<TheoryView onNavigate={handleNavigate} />} />
+          <Route path="/ide/*" element={<IdeView onNavigate={handleNavigate} />} />
+          <Route path="/arena/*" element={<ArenaView onNavigate={handleNavigate} onOpenResult={handleOpenResultSim} currentUser={currentUser} pendingRoomCode={pendingRoomCode} setPendingRoomCode={setPendingRoomCode} />} />
+          <Route path="/leaderboard/*" element={
+            <LeaderboardView 
+              onNavigate={handleNavigate} 
+              onSelectArenaSimulation={handleOpenResultSim} 
+              weeklyHistory={getWeeklyHistory()}
+              dailyCompleted={dailyCompleted}
+              dailyGoal={dailyGoal}
+              onManualIncrement={handleManualIncrementProgress}
+              onManualDecrement={handleManualDecrementProgress}
+              currentUser={currentUser}
+            />
+          } />
+          <Route path="/admin/*" element={
+            <AdminView 
+              onNavigate={handleNavigate} 
+              currentUserRole={userRole} 
+              onUpdateRole={handleUpdateRole} 
+            />
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
 
       {/* Floating Victory/Defeat Modal Simulation sandboxes */}
@@ -3650,5 +3664,7 @@ export default function App() {
       </AnimatePresence>
 
     </div>
+    </>
   );
 }
+

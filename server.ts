@@ -9,6 +9,8 @@ import cookieParser from "cookie-parser";
 import session from "express-session";
 import bcrypt from "bcryptjs";
 import { exec } from "child_process";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 // Session typing for TypeScript
 declare module 'express-session' {
@@ -20,7 +22,7 @@ declare module 'express-session' {
 
 const { Pool } = pg;
 
-
+let globalIo: Server | null = null;
 
 dotenv.config();
 
@@ -1644,7 +1646,12 @@ except Exception as e:
     return created;
   };
 
-  const persistArenaLocal = (dbAny: any) => saveDB(dbAny as any);
+  const persistArenaLocal = (dbAny: any) => {
+    saveDB(dbAny as any);
+    if (globalIo) {
+      globalIo.emit('arena_state_updated');
+    }
+  };
 
   const queueJoinTimes: Record<string, number> = {};
 
@@ -2432,8 +2439,30 @@ Context of Current Screen/Lesson: ${context || "Trang lý thuyết Quick Sort"}.
   // Render/production: never bind to loopback only. Must listen on 0.0.0.0.
   const rawHost = process.env.HOST || '0.0.0.0';
   const host = (rawHost === '127.0.0.1' || rawHost === 'localhost') ? '0.0.0.0' : rawHost;
-  app.listen(PORT, host, () => {
-    console.log(`Server running on http://${host}:${PORT}`);
+  
+  const httpServer = createServer(app);
+  const io = new Server(httpServer, {
+    cors: { origin: '*' }
+  });
+  globalIo = io;
+  
+  // Attach io to app so routes can use it
+  app.set('io', io);
+  
+  io.on('connection', (socket) => {
+    console.log('Socket connected:', socket.id);
+    
+    socket.on('join_match', (matchId) => {
+      socket.join(`match_${matchId}`);
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected:', socket.id);
+    });
+  });
+
+  httpServer.listen(PORT, host, () => {
+    console.log(`Server running on http://${host}:${PORT} with WebSockets`);
   });
 
 }

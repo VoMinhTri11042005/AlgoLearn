@@ -7,13 +7,9 @@ import {
 } from 'lucide-react';
 import { CodeFile, TestcaseResult, AlgorithmicStep } from '../types';
 import { playAudioCue, getSoundEnabled, setSoundEnabled as saveSoundOnStorage } from '../utils/audio';
+import { generateLomutoSteps } from '../engine/visualizer/quickSort';
 
-import Editor from 'react-simple-code-editor';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-cpp';
-import 'prismjs/themes/prism-tomorrow.css';
+import Editor from '@monaco-editor/react';
 
 interface IdeViewProps {
   onNavigate: (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard') => void;
@@ -142,79 +138,7 @@ def quick_sort(arr, low, high):
   };
 
   // Dynamic Lomuto step builder for ANY numbers array
-  const generateLomutoSteps = (arrInput: number[]): AlgorithmicStep[] => {
-    const steps: AlgorithmicStep[] = [];
-    const n = arrInput.length;
-    if (n === 0) return [];
-    
-    const currentArr = [...arrInput];
-    const low = 0;
-    const high = n - 1;
-    const pivotVal = currentArr[high];
-    
-    steps.push({
-      array: [...currentArr],
-      highlights: { pivot: high, low, high, active: -1 },
-      description: `🚀 Khởi đầu phân hoạch Lomuto. Chọn chốt pivot = A[high] = ${pivotVal} ở vị trí cuối cùng (index ${high}). Thiết lập chỉ số i = -1.`
-    });
-    
-    let i = low - 1;
-    for (let j = low; j < high; j++) {
-      const valJ = currentArr[j];
-      
-      steps.push({
-        array: [...currentArr],
-        highlights: { pivot: high, low, high, active: j },
-        description: `🔍 j = ${j}: So sánh A[j] (${valJ}) với pivot (${pivotVal}).` + 
-          (valJ <= pivotVal 
-            ? ` Vì ${valJ} <= ${pivotVal}, tăng chỉ số i lên và hoán đổi.` 
-            : ` Vì ${valJ} > ${pivotVal}, không hoán đổi, chỉ số i giữ nguyên ở vị trí index ${i}.`)
-      });
-      
-      if (valJ <= pivotVal) {
-        i++;
-        const valI = currentArr[i];
-        const temp = currentArr[i];
-        currentArr[i] = currentArr[j];
-        currentArr[j] = temp;
-        
-        steps.push({
-          array: [...currentArr],
-          highlights: { pivot: high, low, high, active: j, swapping: [i, j] },
-          description: `🔄 Hoán đổi A[i=${i}] (${valI}) với A[j=${j}] (${valJ}) để dồn phần tử nhỏ hơn lên đầu mảng.`
-        });
-      }
-    }
-    
-    const targetIdx = i + 1;
-    const targetVal = currentArr[targetIdx];
-    const originalPivotIdx = high;
-    
-    steps.push({
-      array: [...currentArr],
-      highlights: { pivot: originalPivotIdx, low, high, active: -1 },
-      description: `🔚 Đã quét xong mảng con. Chuẩn bị đưa chốt pivot (${pivotVal}) từ cuối về vị trí phân tách mảng i+1 = ${targetIdx} (thay thế giá trị ${targetVal}).`
-    });
-    
-    const temp = currentArr[targetIdx];
-    currentArr[targetIdx] = currentArr[high];
-    currentArr[high] = temp;
-    
-    steps.push({
-      array: [...currentArr],
-      highlights: { pivot: targetIdx, low, high, swapping: [targetIdx, originalPivotIdx] },
-      description: `💎 Chốt pivot (${pivotVal}) đã ở vị trí chính xác tuyệt đối (index ${targetIdx}). Phía bên trái đều bé hơn, bên phải đều lớn hơn hoặc bằng nó.`
-    });
-    
-    const sortedCopy = [...currentArr].sort((a, b) => a - b);
-    steps.push({
-      array: sortedCopy,
-      highlights: {},
-      description: `🎉 Tiếp tục đệ quy chia để trị trên nhánh trái & phải. Mảng sau khi hoàn thiện toàn bộ luồng Quick Sort tăng dần: [${sortedCopy.join(", ")}].`
-    });
-    
-    return steps;
-  };
+
 
   const [customArrayInput, setCustomArrayInput] = useState<string>('24, 9, 15, 31, 8, 12, 19');
   const [visualizerArray, setVisualizerArray] = useState<number[]>([24, 9, 15, 31, 8, 12, 19]);
@@ -417,32 +341,24 @@ setIsCompiling(false);
           </div>
 
           {/* Interactive Code Editor with VS Code custom colored highlighting */}
-          <div className="flex-1 relative flex h-full min-h-0 overflow-y-auto scrollbar-thin bg-[#0a0d13]">
-            {/* Simulated Line numbers */}
-            <div className="w-10 bg-[#07090d]/65 border-r border-[#1a1f2c]/50 text-right pr-2 select-none text-[11px] font-mono text-slate-500 pt-4 leading-[23px] font-medium text-left shrink-0">
-              {Array.from({ length: Math.max(currentCode.split('\n').length, 1) }).map((_, i) => (
-                <div key={i} className="h-[23px] flex items-center justify-end pr-1.5">{i + 1}</div>
-              ))}
-            </div>
-
-            <div className="flex-1 min-w-0 min-h-full">
-              <Editor
-                value={currentCode}
-                onValueChange={(code) => setCodeForActiveFile(code)}
-                highlight={(code) => Prism.highlight(code, Prism.languages.cpp || Prism.languages.clike, 'cpp')}
-                padding={16}
-                textareaClassName="outline-none focus:outline-none border-none ring-0 focus:ring-0 selection:bg-slate-800"
-                preClassName="focus:outline-none focus:ring-0 selection:bg-slate-800"
-                spellCheck={false}
-                style={{
-                  fontFamily: '"JetBrains Mono", "Courier New", Courier, monospace',
-                  fontSize: '12px',
-                  lineHeight: '23px',
-                  minHeight: '100%',
-                }}
-                className="w-full h-full text-indigo-100"
-              />
-            </div>
+          <div className="flex-1 relative flex h-full min-h-0 overflow-hidden bg-[#0a0d13]">
+            <Editor
+              height="100%"
+              language={files.find(f => f.name === activeFile)?.language === 'python' ? 'python' : 'cpp'}
+              theme="vs-dark"
+              value={currentCode}
+              onChange={(value) => setCodeForActiveFile(value || '')}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                fontFamily: '"JetBrains Mono", "Courier New", monospace',
+                scrollBeyondLastLine: false,
+                smoothScrolling: true,
+                padding: { top: 16 },
+                lineHeight: 23,
+                wordWrap: "on"
+              }}
+            />
           </div>
 
           {/* Output Compilation Terminal */}

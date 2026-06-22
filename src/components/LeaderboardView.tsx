@@ -20,6 +20,15 @@ interface LeaderboardViewProps {
   currentUser?: AppUser | null;
 }
 
+const getBadgeFromXp = (xp: number) => {
+  if (xp >= 30000) return { name: 'Thách Đấu', color: 'text-fuchsia-400', bg: 'bg-fuchsia-400/20', border: 'border-fuchsia-400/30' };
+  if (xp >= 15000) return { name: 'Cao Thủ', color: 'text-purple-400', bg: 'bg-purple-400/20', border: 'border-purple-400/30' };
+  if (xp >= 5000) return { name: 'Kim Cương', color: 'text-cyan-400', bg: 'bg-cyan-400/20', border: 'border-cyan-400/30' };
+  if (xp >= 2000) return { name: 'Bạch Kim', color: 'text-emerald-400', bg: 'bg-emerald-400/20', border: 'border-emerald-400/30' };
+  if (xp >= 500) return { name: 'Vàng', color: 'text-yellow-400', bg: 'bg-yellow-400/20', border: 'border-yellow-400/30' };
+  return { name: 'Tân Binh', color: 'text-gray-400', bg: 'bg-gray-400/20', border: 'border-gray-400/30' };
+};
+
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -600,8 +609,12 @@ export default function LeaderboardView({
                         referrerPolicy="no-referrer"
                       />
                       <div>
-                        <p className="font-bold text-white leading-snug">{leader.name}</p>
-                        <p className="text-[10px] text-gray-500 leading-none mt-0.5">{leader.badge || 'Kỹ sư tập sự'}</p>
+                        <div className="flex flex-col items-start gap-1">
+                          <p className="font-bold text-white leading-snug">{leader.name}</p>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase border ${getBadgeFromXp(leader.xp).bg} ${getBadgeFromXp(leader.xp).color} ${getBadgeFromXp(leader.xp).border}`}>
+                            {leader.badge || getBadgeFromXp(leader.xp).name}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 text-gray-400">
@@ -660,7 +673,9 @@ export default function LeaderboardView({
             <div>
               <div className="flex items-center space-x-2">
                 <p className="font-extrabold text-white text-base">{currentUser ? `${currentUser.name} (Bạn)` : "Minh Hoàng (Bạn)"}</p>
-                <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">ỦY VIÊN</span>
+                <span className={`border text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${getBadgeFromXp(currentUser ? currentUser.xp : 12400).bg} ${getBadgeFromXp(currentUser ? currentUser.xp : 12400).color} ${getBadgeFromXp(currentUser ? currentUser.xp : 12400).border}`}>
+                  {getBadgeFromXp(currentUser ? currentUser.xp : 12400).name}
+                </span>
               </div>
               <p className="text-xs text-gray-400">{currentUser ? currentUser.school : "ĐH Công nghệ thông tin - ĐHQG-HCM"} | <strong>{currentUser ? currentUser.solved : 63} bài</strong> đã hoàn thành</p>
             </div>

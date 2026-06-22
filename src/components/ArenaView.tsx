@@ -5,12 +5,10 @@ import {
   Trophy, CheckCircle, HelpCircle, ChevronRight, AlertTriangle, Eye, EyeOff
 } from 'lucide-react';
 import { playAudioCue } from '../utils/audio';
+import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
 
-import Editor from 'react-simple-code-editor';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-python';
-import 'prismjs/themes/prism-tomorrow.css';
+import Editor from '@monaco-editor/react';
 
 interface ArenaViewProps {
   onNavigate: (view: 'home' | 'theory' | 'ide' | 'arena' | 'leaderboard') => void;
@@ -206,7 +204,7 @@ class Solution:
         body: JSON.stringify({ targetUserId, roomCode }),
         credentials: 'include'
       });
-      alert('Đã gửi lời mời thành công!');
+      toast.success('Đã gửi lời mời thành công!');
     } catch(e) {}
   };
 
@@ -223,8 +221,19 @@ class Solution:
       } catch (e) {}
     };
     fetchOnline();
-    const interval = setInterval(fetchOnline, 5000);
-    return () => { alive = false; clearInterval(interval); };
+    const interval = setInterval(fetchOnline, 15000); // Fallback poll every 15s
+    
+    // Listen for instant websocket updates from server
+    const socket = io();
+    socket.on('arena_state_updated', () => {
+      if (alive) fetchOnline();
+    });
+
+    return () => { 
+      alive = false; 
+      clearInterval(interval); 
+      socket.disconnect();
+    };
   }, [queueState, roomCode]);
 
   useEffect(() => {
@@ -279,7 +288,7 @@ class Solution:
             data.rejectedInvites.forEach((name: string) => {
               if (!seenRejectionsRef.current.has(name)) {
                 seenRejectionsRef.current.add(name);
-                alert(`Người chơi ${name} đã từ chối lời mời của bạn.`);
+                toast.error(`Người chơi ${name} đã từ chối lời mời của bạn.`);
               }
             });
           }
@@ -303,11 +312,19 @@ class Solution:
       }
     };
 
-    const t = setInterval(poll, 2000);
+    const t = setInterval(poll, 15000); // Fallback poll every 15s
     poll();
+    
+    // Listen for instant websocket updates from server
+    const socket = io();
+    socket.on('arena_state_updated', () => {
+      if (alive) poll();
+    });
+
     return () => {
       alive = false;
       clearInterval(t);
+      socket.disconnect();
     };
   }, [matchId, currentUserId, onOpenResult]);
 
@@ -651,7 +668,7 @@ class Solution:
           </div>
 
           {/* Interactive Code Editor with VS Code custom colored highlighting */}
-          <div className="flex-1 relative flex h-full min-h-0 overflow-y-auto bg-[#090b0e]">
+          <div className="flex-1 relative flex h-full min-h-0 overflow-hidden bg-[#090b0e]">
             {incomingSabotage === 'sương_mù' && (
               <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center">
                 <ShieldAlert className="w-16 h-16 text-indigo-500 animate-pulse mb-4" />
@@ -659,32 +676,24 @@ class Solution:
                 <p className="text-gray-300">Đối thủ đã dùng thẻ cấm lên bạn!</p>
               </div>
             )}
-            {/* Simulated Line numbers */}
-            <div className="w-10 bg-[#07090d]/65 border-r border-[#1a1f2c]/50 text-right pr-2 select-none text-[11px] font-mono text-slate-500 pt-4 leading-[23px] font-medium text-left shrink-0">
-              {Array.from({ length: Math.max(solution.split('\n').length, 1) }).map((_, i) => (
-                <div key={i} className="h-[23px] flex items-center justify-end pr-1.5">{i + 1}</div>
-              ))}
-            </div>
-
-            <div className="flex-1 min-w-0 min-h-full">
-              <Editor
-                value={solution}
-                onValueChange={(code) => setSolution(code)}
-                highlight={(code) => Prism.highlight(code, Prism.languages.python || Prism.languages.clike, 'python')}
-                padding={16}
-                textareaClassName="outline-none focus:outline-none border-none ring-0 focus:ring-0 selection:bg-slate-800"
-                preClassName="focus:outline-none focus:ring-0 selection:bg-slate-800"
-                disabled={isEvaluating}
-                spellCheck={false}
-                style={{
-                  fontFamily: '"JetBrains Mono", "Courier New", Courier, monospace',
-                  fontSize: '12px',
-                  lineHeight: '23px',
-                  minHeight: '100%',
-                }}
-                className="w-full h-full text-[#b4f9f8]"
-              />
-            </div>
+            <Editor
+              height="100%"
+              language="python"
+              theme="vs-dark"
+              value={solution}
+              onChange={(value) => setSolution(value || '')}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                fontFamily: '"JetBrains Mono", "Courier New", monospace',
+                scrollBeyondLastLine: false,
+                smoothScrolling: true,
+                padding: { top: 16 },
+                lineHeight: 23,
+                readOnly: isEvaluating,
+                wordWrap: "on"
+              }}
+            />
           </div>
 
           {/* Evaluating Output log box */}

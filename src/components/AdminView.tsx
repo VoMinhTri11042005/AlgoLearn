@@ -4,6 +4,7 @@ import {
   ShieldCheck, Users, BookOpen, Database, Plus, Trash2, Edit, Save, 
   RefreshCw, CheckCircle2, AlertCircle, X, ChevronRight, UserMinus, ShieldAlert, BookPlus, TrendingUp
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import AdminDashboard from './AdminDashboard';
 
 import Prism from 'prismjs';
@@ -130,11 +131,11 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
         setCustomPgUrl('');
         await Promise.all([fetchSyllabus(), fetchUsers(), fetchPgStatus()]);
       } else {
-        alert(data.error || "Không thể kết nối đến PostgreSQL!");
+        toast.error(data.error || "Không thể kết nối đến PostgreSQL!");
         await fetchPgStatus();
       }
     } catch (err: any) {
-      alert("Lỗi kết nối: " + (err.message || String(err)));
+      toast.error("Lỗi kết nối: " + (err.message || String(err)));
     } finally {
       setPgConfiguring(false);
     }
