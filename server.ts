@@ -2178,6 +2178,25 @@ except Exception as e:
     return res.json(payload);
   });
 
+  // POST /api/arena/match/:matchId/attack
+  app.post('/api/arena/match/:matchId/attack', requireAuth, async (req, res) => {
+    const matchId = req.params.matchId;
+    const { type } = req.body || {};
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const dbAny: any = getArenaStateLocal();
+    const match = (dbAny.arena_matches as ArenaMatch[]).find((m: ArenaMatch) => m.id === matchId);
+    if (!match) return res.status(404).json({ error: 'match not found' });
+    if (match.status !== 'running') return res.status(400).json({ error: 'match not running' });
+    if (match.playerId !== userId && match.opponentId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    if (globalIo) {
+      globalIo.to(`match_${matchId}`).emit('arena_attack', { matchId, type, senderId: userId });
+    }
+    return res.json({ success: true });
+  });
+
   // POST /api/arena/match/:matchId/submit
   app.post('/api/arena/match/:matchId/submit', requireAuth, async (req, res) => {
     const matchId = req.params.matchId;

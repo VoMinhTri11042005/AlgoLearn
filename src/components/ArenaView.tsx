@@ -332,6 +332,7 @@ class Solution:
     // Listen for instant websocket updates from server
     const socket = io();
     socketRef.current = socket;
+    socket.emit('join_match', matchId);
     
     socket.on('arena_state_updated', () => {
       if (alive) poll();
@@ -341,6 +342,15 @@ class Solution:
       if (data.senderId !== currentUserId) {
         // playAudioCue('receive' as any);
         setFloatingEmotes(prev => [...prev, { id: Date.now() + Math.random(), emoji: data.emote, isSender: false }]);
+      }
+    });
+
+    socket.on('arena_attack', (data: any) => {
+      if (data.senderId !== currentUserId) {
+        setIncomingSabotage(data.type);
+        setTimeout(() => {
+          setIncomingSabotage(null);
+        }, 7000);
       }
     });
 
