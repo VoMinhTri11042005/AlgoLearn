@@ -356,7 +356,7 @@ async function connectPostgres(connectionString?: string): Promise<boolean> {
       // Direct connection string fallback
       dbPool = new Pool({
         connectionString: url,
-        ssl: url.includes("localhost") || url.includes("127.0.0.1") ? false : { rejectUnauthorized: false }
+        ssl: url.includes("localhost") || url.includes("127.0.0.1") || url.includes("algolearn-db") ? false : { rejectUnauthorized: false }
       });
     } else {
       usePostgres = false;
