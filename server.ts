@@ -2196,17 +2196,28 @@ except Exception as e:
     // Run through Python sandbox
     const sandboxResult = await runPythonSandbox(code);
 
-    const isSenderPlayer = match.playerId === userId;
+    // ANTI-RACE CONDITION: Re-read state because sandbox execution takes time.
+    // If we use the old dbAny, we will overwrite the DB with stale data if the opponent finished first.
+    const freshDbAny: any = getArenaStateLocal();
+    const freshMatch = (freshDbAny.arena_matches as ArenaMatch[]).find((m: ArenaMatch) => m.id === matchId);
+    if (!freshMatch) return res.status(404).json({ error: 'match not found during re-evaluation' });
+
+    if (freshMatch.winnerId) {
+      // Opponent won while we were evaluating
+      return res.json({ status: 'already-finished', winnerId: freshMatch.winnerId });
+    }
+
+    const isSenderPlayer = freshMatch.playerId === userId;
     // Update player pass count
     if (isSenderPlayer) {
-      match.playerPassCount = sandboxResult.passedCount;
+      freshMatch.playerPassCount = sandboxResult.passedCount;
     } else {
-      match.opponentPassCount = sandboxResult.passedCount;
+      freshMatch.opponentPassCount = sandboxResult.passedCount;
     }
 
     // If not all tests passed, allow re-submission
     if (sandboxResult.passedCount < sandboxResult.totalCount) {
-      persistArenaLocal(dbAny);
+      persistArenaLocal(freshDbAny);
       return res.json({
         status: 'partial',
         passedCount: sandboxResult.passedCount,
@@ -2214,8 +2225,8 @@ except Exception as e:
         logs: sandboxResult.logs,
         results: sandboxResult.results,
         progress: {
-          player: match.playerPassCount || 0,
-          opponent: match.opponentPassCount || 0,
+          player: freshMatch.playerPassCount || 0,
+          opponent: freshMatch.opponentPassCount || 0,
           total: 5,
         },
       });
@@ -2227,9 +2238,9 @@ except Exception as e:
     const playerResult: 'victory' | 'defeat' = playerWins ? 'victory' : 'defeat';
     const opponentResult: 'victory' | 'defeat' = playerWins ? 'defeat' : 'victory';
 
-    const playerRating = getArenaRatingFromState(dbAny, match.playerId);
-    const opponentRating = match.opponentId ? getArenaRatingFromState(dbAny, match.opponentId) : null;
-    if (!match.opponentId || !opponentRating) return res.status(400).json({ error: 'opponent not assigned' });
+    const playerRating = getArenaRatingFromState(freshDbAny, freshMatch.playerId);
+    const opponentRating = freshMatch.opponentId ? getArenaRatingFromState(freshDbAny, freshMatch.opponentId) : null;
+    if (!freshMatch.opponentId || !opponentRating) return res.status(400).json({ error: 'opponent not assigned' });
 
     const eloBefore = { player: playerRating.elo, opponent: opponentRating.elo };
     const updated = eloUpdate(playerRating.elo, opponentRating.elo, playerWins ? 1 : 0);
@@ -2248,23 +2259,23 @@ except Exception as e:
     opponentRating.losses += (playerWins ? 1 : 0);
     opponentRating.updatedAt = now;
 
-    match.status = 'finished';
-    match.finishedAt = now;
-    match.winnerId = isSenderPlayer ? match.playerId : match.opponentId;
-    match.playerResult = playerResult;
-    match.opponentResult = opponentResult;
-    match.submittedBy = isSenderPlayer ? 'player' : 'opponent';
-    match.eloBefore = eloBefore;
-    match.eloAfter = { player: updated.playerElo, opponent: updated.opponentElo };
+    freshMatch.status = 'finished';
+    freshMatch.finishedAt = now;
+    freshMatch.winnerId = isSenderPlayer ? freshMatch.playerId : freshMatch.opponentId;
+    freshMatch.playerResult = playerResult;
+    freshMatch.opponentResult = opponentResult;
+    freshMatch.submittedBy = isSenderPlayer ? 'player' : 'opponent';
+    freshMatch.eloBefore = eloBefore;
+    freshMatch.eloAfter = { player: updated.playerElo, opponent: updated.opponentElo };
 
-    persistArenaLocal(dbAny);
+    persistArenaLocal(freshDbAny);
 
     return res.json({
       status: 'ok',
-      winnerId: match.winnerId,
+      winnerId: freshMatch.winnerId,
       winnerIsSender: true,
-      eloBefore: match.eloBefore,
-      eloAfter: match.eloAfter,
+      eloBefore: freshMatch.eloBefore,
+      eloAfter: freshMatch.eloAfter,
       rewardXp: senderWins ? 500 : 150,
       passedCount: sandboxResult.passedCount,
       totalCount: sandboxResult.totalCount,
