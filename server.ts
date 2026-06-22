@@ -788,7 +788,11 @@ async function deleteDBUser(userId: string): Promise<boolean> {
 async function registerDBUser(user: Omit<DBUser, "id" | "createdAt" | "isAdmin" | "xp" | "solved" | "streak">): Promise<DBUser | null> {
   const id = "usr_" + Math.random().toString(36).substring(2, 11);
   const emailQuery = user.email.trim().toLowerCase();
-  const isAdmin = emailQuery === 'admin@algolearn.vn';
+  
+  // Security Fix: Do not grant admin simply based on email during registration.
+  // Admin rights should be configured via seed data or by another admin.
+  const isAdmin = false; 
+  
   const createdAt = new Date().toISOString();
 
   const hashed = isBcryptHash(user.password) ? user.password : await bcrypt.hash(user.password, 10);
@@ -1008,7 +1012,7 @@ async function startServer() {
   };
 
   const requireAdmin = (req: any, res: any, next: any) => {
-    if (req.session?.isAdmin) return next();
+    if (req.session?.userId && req.session?.isAdmin) return next();
     return res.status(403).json({ error: 'Admin only' });
   };
 
@@ -1053,7 +1057,7 @@ async function startServer() {
   });
 
   // Hot configure connection string API
-  app.post("/api/postgres/configure", async (req, res) => {
+  app.post("/api/postgres/configure", requireAdmin, async (req, res) => {
     const { url } = req.body;
     if (!url) {
       return res.status(400).json({ error: "Vui lòng nhập đường dẫn kết nối PostgreSQL URL (DATABASE_URL)." });
@@ -1067,7 +1071,7 @@ async function startServer() {
   });
 
   // Disconnect Postgres API
-  app.post("/api/postgres/disconnect", async (req, res) => {
+  app.post("/api/postgres/disconnect", requireAdmin, async (req, res) => {
     usePostgres = false;
     if (dbPool) {
       await dbPool.end();
@@ -1084,7 +1088,7 @@ async function startServer() {
   });
 
   // API Route - Edit/Add syllabus list (Admin only)
-  app.post("/api/syllabus", async (req, res) => {
+  app.post("/api/syllabus", requireAdmin, async (req, res) => {
     const { syllabus } = req.body;
     if (Array.isArray(syllabus)) {
       const updated = await saveDBSyllabus(syllabus);
@@ -1095,14 +1099,14 @@ async function startServer() {
   });
 
   // API Route - Reset syllabus list (Admin only)
-  app.post("/api/syllabus/reset", async (req, res) => {
+  app.post("/api/syllabus/reset", requireAdmin, async (req, res) => {
     const updated = await resetDBSyllabus();
     const users = await resetDBUsers();
     res.json({ status: "success", syllabus: updated, users: usersForClient(users) });
   });
 
   // API Route - Set active lesson
-  app.post("/api/syllabus/active", async (req, res) => {
+  app.post("/api/syllabus/active", requireAdmin, async (req, res) => {
     const { id } = req.body;
     if (!id) {
       return res.status(400).json({ error: "Lesson ID is required" });
@@ -1153,6 +1157,19 @@ async function startServer() {
 
     if (!name || !email || !school || !password) {
       return res.status(400).json({ error: "Required fields missing" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Mật khẩu phải có độ dài tối thiểu 6 ký tự." });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Địa chỉ email không hợp lệ." });
+    }
+
+    if (name.length > 255 || school.length > 255) {
+      return res.status(400).json({ error: "Tên hoặc Tên trường học quá dài (tối đa 255 ký tự)." });
     }
 
     const newUser = await registerDBUser({ name, email, school, avatar, password });
@@ -1594,29 +1611,9 @@ except Exception as e:
       }
       throw new Error('Invalid Piston output');
     } catch (apiErr) {
-      logs.push(`⚠️ Piston API lỗi (${apiErr}). Chuyển sang chạy Local Fallback...`);
-      // 3. Local fallback execution
-      return new Promise((resolve) => {
-        const tempDir = path.join(process.cwd(), 'temp_arena');
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-        const tempFilePath = path.join(tempDir, `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.py`);
-        
-        fs.writeFileSync(tempFilePath, fullCode, 'utf8');
-        const cmd = `python "${tempFilePath}"`;
-        exec(cmd, { timeout: 3000 }, (error: any, stdout: string, stderr: string) => {
-          try { fs.unlinkSync(tempFilePath); } catch (e) {}
-          if (error && error.killed) {
-            logs.push("❌ Quá thời gian thực thi (Timeout 3s). Có thể có vòng lặp vô hạn!");
-            return resolve({ passedCount: 0, totalCount: 5, results: [], logs });
-          }
-          if (stderr) {
-            logs.push("❌ Runtime Error / Syntax Error (Local):");
-            logs.push(stderr);
-            return resolve({ passedCount: 0, totalCount: 5, results: [], logs });
-          }
-          resolve(parseOutput(stdout, logs));
-        });
-      });
+      logs.push(`⚠️ Piston API lỗi (${apiErr}). Máy chủ hiện đang quá tải và không thể tự chạy code (Ngăn chặn RCE). Vui lòng nộp lại bài sau!`);
+      // 3. Security Fix: Removed local fallback execution to prevent RCE vulnerability.
+      return { passedCount: 0, totalCount: 5, results: [], logs };
     }
   };
 
@@ -1810,7 +1807,12 @@ except Exception as e:
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const dbAny: any = getArenaStateLocal();
-    const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    let roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    
+    // Security Fix: Prevent roomCode collision
+    while ((dbAny.arena_matches as ArenaMatch[]).some(m => m.roomCode === roomCode && (m.status === 'waiting' || m.status === 'running'))) {
+      roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
 
     const newMatch: ArenaMatch = {
       id: `match_${Date.now()}_${Math.random().toString(36).substring(7)}`,
