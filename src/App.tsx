@@ -194,8 +194,8 @@ export default function App() {
         if (!prevUser) return null;
         const updatedUser = {
           ...prevUser,
-          xp: prevUser.xp + amount,
-          solved: prevUser.solved + solvedIncrement
+          xp: Number(prevUser.xp) + amount,
+          solved: Number(prevUser.solved) + solvedIncrement
         };
         
         try {

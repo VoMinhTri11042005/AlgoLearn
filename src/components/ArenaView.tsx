@@ -342,7 +342,7 @@ class Solution:
       onOpenResult(data.winnerIsSender ? 'victory' : 'defeat', {
         playerName: currentUser?.name,
         opponentName: opponent?.name || 'Đối thủ',
-        playerPassCount: data.progress?.player || 0,
+        playerPassCount: data.passedCount || data.progress?.player || 0,
         opponentPassCount: data.progress?.opponent || 0
       });
     } catch (e) {
