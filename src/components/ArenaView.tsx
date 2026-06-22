@@ -63,6 +63,7 @@ class Solution:
   const hasDispatchedPracticeRef = useRef(false);
   const [showAiHint, setShowAiHint] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const hasSubmittedRef = useRef(false);
   const [resultsLogs, setResultsLogs] = useState<string[]>([]);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
@@ -112,6 +113,8 @@ class Solution:
   };
 
   const joinQueue = async () => {
+    setHasSubmitted(false);
+    hasSubmittedRef.current = false;
     if (!currentUserId) {
       setQueueState('error');
       setJoinError('Bạn cần đăng nhập để vào đấu trường 1v1.');
@@ -159,8 +162,10 @@ class Solution:
 
   const createRoom = async () => {
     try {
-      const r = await fetch('/api/arena/room/create', { method: 'POST', credentials: 'include' });
-      const data = await r.json();
+      setHasSubmitted(false);
+      hasSubmittedRef.current = false;
+      const res = await fetch('/api/arena/room/create', { method: 'POST', credentials: 'include' });
+      const data = await res.json();
       if (data.status === 'created') {
         setRoomCode(data.roomCode);
         setMatchId(data.matchId);
@@ -172,6 +177,8 @@ class Solution:
   const joinRoom = async (code: string) => {
     if (!code) return;
     try {
+      setHasSubmitted(false);
+      hasSubmittedRef.current = false;
       const r = await fetch('/api/arena/room/join', { 
         method: 'POST', 
         headers: {'Content-Type': 'application/json'},
@@ -231,6 +238,8 @@ class Solution:
 
         if (data.matchId && data.matchId !== matchId) {
           setMatchId(data.matchId);
+          setHasSubmitted(false);
+          hasSubmittedRef.current = false;
         }
 
         if (data.status === 'running') {
@@ -268,13 +277,15 @@ class Solution:
         if (data.status === 'finished') {
           setQueueState('lobby');
           setMatchId(null);
-          const winnerIsPlayer = data.result?.winnerId === currentUserId;
-          onOpenResult(winnerIsPlayer ? 'victory' : 'defeat', {
-            playerName: currentUser?.name,
-            opponentName: opponent?.name || data.opponent?.name || 'Đối thủ',
-            playerPassCount: data.progress?.player || 0,
-            opponentPassCount: data.progress?.opponent || 0
-          });
+          if (!hasSubmittedRef.current) {
+            const winnerIsPlayer = data.result?.winnerId === currentUserId;
+            onOpenResult(winnerIsPlayer ? 'victory' : 'defeat', {
+              playerName: currentUser?.name,
+              opponentName: opponent?.name || data.opponent?.name || 'Đối thủ',
+              playerPassCount: data.progress?.player || 0,
+              opponentPassCount: data.progress?.opponent || 0
+            });
+          }
         }
       } catch {
         // ignore transient errors
@@ -320,12 +331,14 @@ class Solution:
       if (data.status === 'partial') {
         // Not all tests passed – allow re-submit
         setHasSubmitted(false);
+        hasSubmittedRef.current = false;
         playAudioCue('fail');
         return;
       }
 
       // Full pass (status === 'ok') or match finished
       setHasSubmitted(true);
+      hasSubmittedRef.current = true;
       if (data.eloAfter) {
         setArenaElo(data.eloAfter);
       }
