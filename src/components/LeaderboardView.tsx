@@ -188,7 +188,14 @@ export default function LeaderboardView({
   const selfElo = selfEntry?.elo ?? selfEntry?.xp ?? 1200;
 
   return (
-    <div id="leaderboard_container" className="min-h-[calc(100vh-4rem)] premium-app text-gray-200 font-sans flex flex-col pb-36 sm:pb-48 relative">
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -15 }}
+      transition={{ duration: 0.3 }}
+      id="leaderboard_container" 
+      className="min-h-[calc(100vh-4rem)] premium-app text-gray-200 font-sans flex flex-col pb-36 sm:pb-48 relative"
+    >
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-10 w-full flex-1 flex flex-col space-y-10 text-left">
         
         {/* Leaderboard Header Section */}
@@ -717,6 +724,6 @@ export default function LeaderboardView({
         </div>
 
       </div>
-    </div>
+    </motion.div>
   );
 }

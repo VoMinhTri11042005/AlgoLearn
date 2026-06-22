@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Code, Terminal, Sparkles, RefreshCw, ChevronRight, CheckCircle2, 
   Settings, Layers, BookOpen, AlertCircle, Cpu, FileJson, Clock, BarChart4,
-  Volume2, VolumeX
+  Volume2, VolumeX, Send, Bot, X
 } from 'lucide-react';
 import { CodeFile, TestcaseResult, AlgorithmicStep } from '../types';
 import { playAudioCue, getSoundEnabled, setSoundEnabled as saveSoundOnStorage } from '../utils/audio';
@@ -221,6 +221,45 @@ def quick_sort(arr, low, high):
   }, [currentStepIdx, visualSteps]);
 
   const activeStep = visualSteps[currentStepIdx];
+  // AI Tutor State
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiChat, setAiChat] = useState<{role: 'user'|'model', text: string}[]>([
+    { role: 'model', text: 'Chào bạn! Mình là Algo AI 🦆 (Rubber Duck). Bạn cần hỗ trợ sửa lỗi hay giải thích thuật toán nào?' }
+  ]);
+  const [aiInput, setAiInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isAiOpen) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [aiChat, isAiOpen]);
+
+  const handleAskAi = async () => {
+    if (!aiInput.trim()) return;
+    const currentMsg = aiInput;
+    setAiInput("");
+    const newChat = [...aiChat, { role: 'user', text: currentMsg }] as any;
+    setAiChat(newChat);
+    setAiLoading(true);
+
+    try {
+      const res = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentMsg,
+          history: newChat.slice(0, -1),
+          context: `File hiện tại đang code: ${activeFile}\n\nCode:\n${currentCode}`
+        })
+      });
+      const data = await res.json();
+      setAiChat([...newChat, { role: 'model', text: data.text }]);
+    } catch (e) {
+      setAiChat([...newChat, { role: 'model', text: "❌ Xin lỗi, không thể kết nối tới AI. Hãy thử lại." }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleRunCode = () => {
     hasDispatchedPracticeRef.current = false;
@@ -270,7 +309,13 @@ setIsCompiling(false);
   };
 
   return (
-    <div id="ide_screen_container" className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#0d0f14] text-gray-200 font-sans flex flex-col">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      id="ide_screen_container" 
+      className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#0d0f14] text-gray-200 font-sans flex flex-col relative"
+    >
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 pb-36 lg:pb-0 overflow-y-auto lg:overflow-hidden lg:h-full">
         
         {/* Leftmost Sidebar Selector - Project Files */}
@@ -486,55 +531,72 @@ setIsCompiling(false);
                 </div>
 
                 {/* Controller of Steps */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#1a1f2c] pt-4 mt-2">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
+                <div className="flex flex-col space-y-4 border-t border-[#1a1f2c] pt-4 mt-2">
+                  <div className="flex items-center space-x-3 w-full">
+                    <span className="text-[10px] text-gray-500 font-mono w-10 text-right">{currentStepIdx + 1}/{visualSteps.length}</span>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max={visualSteps.length - 1} 
+                      value={currentStepIdx} 
+                      onChange={(e) => {
+                        setCurrentStepIdx(parseInt(e.target.value));
                         setIsAutoPlaying(false);
-                        setCurrentStepIdx((p) => Math.max(0, p - 1));
-                        playAudioCue('click');
                       }}
-                      disabled={currentStepIdx === 0}
-                      className="bg-[#1b202e] hover:bg-[#252c3f] disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-bold text-xs p-2.5 rounded-lg cursor-pointer flex items-center justify-center transition"
-                    >
-                      Bước lùi
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setIsAutoPlaying(!isAutoPlaying);
-                        playAudioCue('click');
-                      }}
-                      className={`font-semibold text-xs px-5 py-2.5 rounded-lg cursor-pointer text-white flex items-center space-x-1.5 shadow-md transition ${
-                        isAutoPlaying ? 'bg-amber-600/90 hover:bg-amber-500' : 'bg-indigo-650 hover:bg-indigo-600'
-                      }`}
-                    >
-                      <span>{isAutoPlaying ? 'Pause Autoplay' : 'Autoplay'}</span>
-                    </button>
+                      className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          setIsAutoPlaying(false);
+                          setCurrentStepIdx((p) => Math.max(0, p - 1));
+                          playAudioCue('click');
+                        }}
+                        disabled={currentStepIdx === 0}
+                        className="bg-[#1b202e] hover:bg-[#252c3f] disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-bold text-xs p-2.5 rounded-lg cursor-pointer flex items-center justify-center transition"
+                      >
+                        Bước lùi
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setIsAutoPlaying(!isAutoPlaying);
+                          playAudioCue('click');
+                        }}
+                        className={`font-semibold text-xs px-5 py-2.5 rounded-lg cursor-pointer text-white flex items-center space-x-1.5 shadow-md transition ${
+                          isAutoPlaying ? 'bg-amber-600/90 hover:bg-amber-500' : 'bg-indigo-650 hover:bg-indigo-600'
+                        }`}
+                      >
+                        <span>{isAutoPlaying ? 'Pause Autoplay' : 'Autoplay'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAutoPlaying(false);
+                          setCurrentStepIdx((p) => Math.min(visualSteps.length - 1, p + 1));
+                          playAudioCue('click');
+                        }}
+                        disabled={currentStepIdx === visualSteps.length - 1}
+                        className="bg-[#1a202d] hover:bg-[#262f44] disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-bold text-xs p-2.5 rounded-lg cursor-pointer flex items-center justify-center transition"
+                      >
+                        Bước tiếp
+                      </button>
+                    </div>
 
                     <button
                       onClick={() => {
                         setIsAutoPlaying(false);
-                        setCurrentStepIdx((p) => Math.min(visualSteps.length - 1, p + 1));
-                        playAudioCue('click');
+                        setCurrentStepIdx(0);
+                        playAudioCue('success');
                       }}
-                      disabled={currentStepIdx === visualSteps.length - 1}
-                      className="bg-[#1a202d] hover:bg-[#262f44] disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-bold text-xs p-2.5 rounded-lg cursor-pointer flex items-center justify-center transition"
+                      className="text-[10px] uppercase font-bold text-slate-500 hover:text-white transition"
                     >
-                      Bước tiếp
+                      Reset Visualizer
                     </button>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      setIsAutoPlaying(false);
-                      setCurrentStepIdx(0);
-                      playAudioCue('success');
-                    }}
-                    className="text-[10px] uppercase font-bold text-slate-500 hover:text-white transition"
-                  >
-                    Reset Visualizer
-                  </button>
                 </div>
               </div>
             ) : (
@@ -613,6 +675,87 @@ setIsCompiling(false);
         </div>
 
       </div>
-    </div>
+
+      {/* Floating AI Tutor Window */}
+      <AnimatePresence>
+        {isAiOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="absolute bottom-24 right-8 w-96 max-w-[90vw] bg-[#0d1117] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 h-[500px]"
+          >
+            <div className="bg-[#161b22] px-4 py-3 flex justify-between items-center border-b border-indigo-500/20">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-200">Algo AI 🦆</h3>
+                  <p className="text-[10px] text-green-400 font-mono">Trực tuyến</p>
+                </div>
+              </div>
+              <button onClick={() => setIsAiOpen(false)} className="text-gray-400 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#090c10] scrollbar-thin">
+              {aiChat.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e2330] text-gray-200 border border-[#2a3040] rounded-bl-none'}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {aiLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-[#1e2330] text-gray-400 border border-[#2a3040] rounded-2xl rounded-bl-none px-4 py-2 flex space-x-1">
+                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></span>
+                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-150"></span>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="p-3 bg-[#161b22] border-t border-indigo-500/20">
+              <form onSubmit={(e) => { e.preventDefault(); handleAskAi(); }} className="relative flex items-center">
+                <input 
+                  type="text" 
+                  value={aiInput}
+                  onChange={e => setAiInput(e.target.value)}
+                  placeholder="Hỏi Algo AI về dòng code lỗi..." 
+                  className="w-full bg-[#090c10] border border-gray-700 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+                />
+                <button 
+                  type="submit" 
+                  disabled={aiLoading || !aiInput.trim()}
+                  className="absolute right-2 p-1.5 text-indigo-400 hover:text-white disabled:opacity-50 transition"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Toggle Button */}
+      {!isAiOpen && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsAiOpen(true)}
+          className="absolute bottom-8 right-8 w-14 h-14 bg-indigo-600 rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white z-40"
+        >
+          <Bot className="w-6 h-6" />
+        </motion.button>
+      )}
+
+    </motion.div>
   );
 }

@@ -1,36 +1,7 @@
+version: '3.8'
 services:
-  # Dịch vụ Frontend + Backend Node.js
-  algolearn-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: algolearn-app-container
+  algolearn-web:
+    build: .
     ports:
       - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      # Địa chỉ kết nối đến cơ sở dữ liệu PostgreSQL ở container 'algolearn-db' kế bên
-      - DATABASE_URL=postgres://postgres:postgres123@algolearn-db:5432/algolearn_db
-      # Cung cấp Gemini API Key tại đây để kích hoạt các tính năng AI giải bài tập, tóm tắt lý thuyết
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     restart: always
-    depends_on:
-      - algolearn-db
-
-  # Cơ sở dữ liệu PostgreSQL cục bộ đi kèm
-  algolearn-db:
-    image: postgres:15-alpine
-    container_name: algolearn-db-container
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres123
-      - POSTGRES_DB=algolearn_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - psql-data:/var/lib/postgresql/data
-
-volumes:
-  psql-data:

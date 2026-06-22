@@ -1,11 +1,7 @@
 node_modules
 dist
-.env
 .git
-.gitignore
-.github
+.env
+.DS_Store
 *.log
-docker-compose*.yml
-temp_arena
-tsc_out.txt
-build_out.txt
+

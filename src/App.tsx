@@ -2262,39 +2262,41 @@ export default function App() {
 
       {/* Main viewport Container screens */}
       <div className={`flex-1 w-full flex flex-col bg-slate-950 transition-all duration-300 ${!isFocusMode ? 'lg:pl-64 pt-16' : ''} ${isWorkspaceView ? 'lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
-        <Routes>
-          <Route path="/" element={
-            <HomeView 
-              onNavigate={handleNavigate} 
-              currentUser={currentUser}
-              onOpenAuthModal={() => setIsAuthModalOpen(true)}
-              onLogout={handleLogout}
-            />
-          } />
-          <Route path="/theory/*" element={<TheoryView onNavigate={handleNavigate} />} />
-          <Route path="/ide/*" element={<IdeView onNavigate={handleNavigate} />} />
-          <Route path="/arena/*" element={<ArenaView onNavigate={handleNavigate} onOpenResult={handleOpenResultSim} currentUser={currentUser} pendingRoomCode={pendingRoomCode} setPendingRoomCode={setPendingRoomCode} />} />
-          <Route path="/leaderboard/*" element={
-            <LeaderboardView 
-              onNavigate={handleNavigate} 
-              onSelectArenaSimulation={handleOpenResultSim} 
-              weeklyHistory={getWeeklyHistory()}
-              dailyCompleted={dailyCompleted}
-              dailyGoal={dailyGoal}
-              onManualIncrement={handleManualIncrementProgress}
-              onManualDecrement={handleManualDecrementProgress}
-              currentUser={currentUser}
-            />
-          } />
-          <Route path="/admin/*" element={
-            <AdminView 
-              onNavigate={handleNavigate} 
-              currentUserRole={userRole} 
-              onUpdateRole={handleUpdateRole} 
-            />
-          } />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={
+              <HomeView 
+                onNavigate={handleNavigate} 
+                currentUser={currentUser}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                onLogout={handleLogout}
+              />
+            } />
+            <Route path="/theory/*" element={<TheoryView onNavigate={handleNavigate} />} />
+            <Route path="/ide/*" element={<IdeView onNavigate={handleNavigate} />} />
+            <Route path="/arena/*" element={<ArenaView onNavigate={handleNavigate} onOpenResult={handleOpenResultSim} currentUser={currentUser} pendingRoomCode={pendingRoomCode} setPendingRoomCode={setPendingRoomCode} />} />
+            <Route path="/leaderboard/*" element={
+              <LeaderboardView 
+                onNavigate={handleNavigate} 
+                onSelectArenaSimulation={handleOpenResultSim} 
+                weeklyHistory={getWeeklyHistory()}
+                dailyCompleted={dailyCompleted}
+                dailyGoal={dailyGoal}
+                onManualIncrement={handleManualIncrementProgress}
+                onManualDecrement={handleManualDecrementProgress}
+                currentUser={currentUser}
+              />
+            } />
+            <Route path="/admin/*" element={
+              <AdminView 
+                onNavigate={handleNavigate} 
+                currentUserRole={userRole} 
+                onUpdateRole={handleUpdateRole} 
+              />
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AnimatePresence>
       </div>
 
       {/* Floating Victory/Defeat Modal Simulation sandboxes */}

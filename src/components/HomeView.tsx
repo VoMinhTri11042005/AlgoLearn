@@ -333,7 +333,14 @@ export default function HomeView({
 
 
   return (
-    <div id="home_container" className="text-gray-100 min-h-[calc(100vh-4rem)] premium-app font-sans pb-36 sm:pb-48 relative">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      id="home_container" 
+      className="text-gray-100 min-h-[calc(100vh-4rem)] premium-app font-sans pb-36 sm:pb-48 relative"
+    >
       {/* Hero Section */}
       <div className="relative overflow-hidden pt-12 pb-20 md:pb-28">
         <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
@@ -1003,6 +1010,6 @@ export default function HomeView({
           </div>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 }

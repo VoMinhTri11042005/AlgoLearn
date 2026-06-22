@@ -66,6 +66,20 @@ class Solution:
   const [resultsLogs, setResultsLogs] = useState<string[]>([]);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
+  // Emotes State
+  const socketRef = useRef<any>(null);
+  const [floatingEmotes, setFloatingEmotes] = useState<{id: number, emoji: string, isSender: boolean}[]>([]);
+  const EMOTES = ['🚀', '😭', '🤯', '🥶'];
+
+  const handleSendEmote = (emoji: string) => {
+    if (!matchId || !currentUserId) return;
+    playAudioCue('send' as any); // fallback if audio not found
+    setFloatingEmotes(prev => [...prev, { id: Date.now() + Math.random(), emoji, isSender: true }]);
+    if (socketRef.current) {
+      socketRef.current.emit('arena_emote', { matchId, emote: emoji, senderId: currentUserId });
+    }
+  };
+
   // Timer synced from server polling
   useEffect(() => {
     if (queueState !== 'running') return;
@@ -317,14 +331,24 @@ class Solution:
     
     // Listen for instant websocket updates from server
     const socket = io();
+    socketRef.current = socket;
+    
     socket.on('arena_state_updated', () => {
       if (alive) poll();
+    });
+
+    socket.on('arena_emote', (data: any) => {
+      if (data.senderId !== currentUserId) {
+        // playAudioCue('receive' as any);
+        setFloatingEmotes(prev => [...prev, { id: Date.now() + Math.random(), emoji: data.emote, isSender: false }]);
+      }
     });
 
     return () => {
       alive = false;
       clearInterval(t);
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [matchId, currentUserId, onOpenResult]);
 
@@ -397,7 +421,29 @@ class Solution:
 
 
   return (
-    <div id="arena_layout" className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#07090d] text-gray-200 font-sans flex flex-col">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      id="arena_layout" 
+      className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-[#07090d] text-gray-200 font-sans flex flex-col relative"
+    >
+      
+      {/* Floating Emotes Render */}
+      <AnimatePresence>
+        {floatingEmotes.map((em) => (
+          <motion.div
+            key={em.id}
+            initial={{ opacity: 1, y: 0, scale: 0.5, x: em.isSender ? -20 : 20 }}
+            animate={{ opacity: 0, y: -200, scale: 2, x: em.isSender ? -100 : 100 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            className={`absolute bottom-32 text-4xl pointer-events-none z-50 ${em.isSender ? 'right-20' : 'left-20'}`}
+          >
+            {em.emoji}
+          </motion.div>
+        ))}
+      </AnimatePresence>
 
       {queueState === 'lobby' && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -829,6 +875,22 @@ class Solution:
       </div>
       </>
       )}
-    </div>
+
+      {/* Emote UI Toolbar (only visible when running) */}
+      {queueState === 'running' && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex space-x-2 bg-slate-900/80 p-2 rounded-full border border-slate-700/50 backdrop-blur-sm z-40">
+          {EMOTES.map(em => (
+            <button
+              key={em}
+              onClick={() => handleSendEmote(em)}
+              className="text-2xl hover:scale-125 hover:-translate-y-2 transition-all active:scale-90"
+            >
+              {em}
+            </button>
+          ))}
+        </div>
+      )}
+
+    </motion.div>
   );
 }

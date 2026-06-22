@@ -1114,7 +1114,14 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
   };
 
   return (
-    <div id="theory_layout" className="min-h-screen lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-slate-950 text-gray-200 font-sans flex flex-col">
+    <motion.div 
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.3 }}
+      id="theory_layout" 
+      className="min-h-screen lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-slate-950 text-gray-200 font-sans flex flex-col"
+    >
       <div className="flex-1 flex flex-col lg:flex-row overflow-visible lg:overflow-hidden">
         
         {/* Left Sidebar - Curriculum Trees */}
@@ -2393,6 +2400,6 @@ export default function TheoryView({ onNavigate }: TheoryViewProps) {
         )}
       </AnimatePresence>
 
-    </div>
+    </motion.div>
   );
 }

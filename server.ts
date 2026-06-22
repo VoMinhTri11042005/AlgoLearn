@@ -1427,17 +1427,9 @@ async function startServer() {
   // Arena 1v1 MVP (queue + match + Elo, local fallback)
   // =============================
 
-  const runPythonSandbox = (code: string): Promise<{ passedCount: number; totalCount: number; results: any[]; logs: string[] }> => {
-    return new Promise((resolve) => {
-      const tempDir = path.join(process.cwd(), 'temp_arena');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir);
-      }
-      const tempFileName = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.py`;
-      const tempFilePath = path.join(tempDir, tempFileName);
-
-      // Python test harness code to append
-      const harness = `
+  const runPythonSandbox = async (code: string): Promise<{ passedCount: number; totalCount: number; results: any[]; logs: string[] }> => {
+    // 1. Prepare python harness
+    const harness = `
 # Ensure TreeNode and Solution exist
 try:
     TreeNode
@@ -1535,90 +1527,97 @@ except Exception as e:
     print(json.dumps({"error": str(e)}))
 `;
 
-      const fullCode = code + '\n' + harness;
-      fs.writeFileSync(tempFilePath, fullCode, 'utf8');
+    const fullCode = code + '\n' + harness;
+    const logs: string[] = [
+      "⚙️ Kết nối máy chủ chấm bài Sandbox Server (Piston/Local)...",
+    ];
 
-      const cmd = `python "${tempFilePath}"`;
-      exec(cmd, { timeout: 3000 }, (error: any, stdout: string, stderr: string) => {
-        try {
-          fs.unlinkSync(tempFilePath);
-        } catch (e) {
-          // ignore
+    const parseOutput = (stdout: string, currentLogs: string[]): { passedCount: number; totalCount: number; results: any[]; logs: string[] } => {
+      let finalLogs = [...currentLogs];
+      try {
+        const lines = stdout.trim().split('\n');
+        const lastLine = lines[lines.length - 1];
+        const parsed = JSON.parse(lastLine.trim());
+        if (parsed.error) {
+          finalLogs.push(`❌ Lỗi khởi tạo: ${parsed.error}`);
+          return { passedCount: 0, totalCount: 5, results: [], logs: finalLogs };
         }
 
-        const logs: string[] = [
-          "⚙️ Kết nối máy chủ chấm bài Sandbox Server...",
-        ];
-
-        if (error && error.killed) {
-          logs.push("❌ Quá thời gian thực thi (Timeout 3s). Có thể có vòng lặp vô hạn!");
-          return resolve({
-            passedCount: 0,
-            totalCount: 5,
-            results: [],
-            logs
-          });
-        }
-
-        if (stderr) {
-          logs.push("❌ Runtime Error / Syntax Error:");
-          logs.push(stderr);
-          return resolve({
-            passedCount: 0,
-            totalCount: 5,
-            results: [],
-            logs
-          });
-        }
-
-        try {
-          const parsed = JSON.parse(stdout.trim());
-          if (parsed.error) {
-            logs.push(`❌ Lỗi khởi tạo: ${parsed.error}`);
-            return resolve({
-              passedCount: 0,
-              totalCount: 5,
-              results: [],
-              logs
-            });
-          }
-
-          const results = parsed.results || [];
-          for (const res of results) {
-            if (res.passed) {
-              logs.push(`⚙️ Đang chạy thử nghiệm Testcase #${res.testcase} (Đầu vào: ${JSON.stringify(res.input)}) -> PASSED`);
-            } else {
-              logs.push(`⚙️ Đang chạy thử nghiệm Testcase #${res.testcase} (Đầu vào: ${JSON.stringify(res.input)}) -> FAILED`);
-              logs.push(`   - Kỳ vọng: ${JSON.stringify(res.expected)}`);
-              logs.push(`   - Thực tế: ${JSON.stringify(res.actual)}`);
-            }
-          }
-
-          if (parsed.passed_count === parsed.total) {
-            logs.push("✔️ TẤT CẢ 5/5 TESTCASES ĐỀU KHỚP KẾT QUẢ ĐẦU RA!");
-            logs.push("=================== THI ĐẤU HOÀN TẤT ===================");
+        const results = parsed.results || [];
+        for (const res of results) {
+          if (res.passed) {
+            finalLogs.push(`⚙️ Đang chạy thử nghiệm Testcase #${res.testcase} (Đầu vào: ${JSON.stringify(res.input)}) -> PASSED`);
           } else {
-            logs.push(`❌ Kết quả: ${parsed.passed_count}/${parsed.total} testcases vượt qua.`);
+            finalLogs.push(`⚙️ Đang chạy thử nghiệm Testcase #${res.testcase} (Đầu vào: ${JSON.stringify(res.input)}) -> FAILED`);
+            finalLogs.push(`   - Kỳ vọng: ${JSON.stringify(res.expected)}`);
+            finalLogs.push(`   - Thực tế: ${JSON.stringify(res.actual)}`);
           }
-
-          resolve({
-            passedCount: parsed.passed_count,
-            totalCount: parsed.total,
-            results,
-            logs
-          });
-        } catch (e) {
-          logs.push("❌ Không thể phân tích kết quả đầu ra của chương trình.");
-          logs.push(stdout);
-          resolve({
-            passedCount: 0,
-            totalCount: 5,
-            results: [],
-            logs
-          });
         }
+
+        if (parsed.passed_count === parsed.total) {
+          finalLogs.push("✔️ TẤT CẢ 5/5 TESTCASES ĐỀU KHỚP KẾT QUẢ ĐẦU RA!");
+          finalLogs.push("=================== THI ĐẤU HOÀN TẤT ===================");
+        } else {
+          finalLogs.push(`❌ Kết quả: ${parsed.passed_count}/${parsed.total} testcases vượt qua.`);
+        }
+
+        return { passedCount: parsed.passed_count, totalCount: parsed.total, results, logs: finalLogs };
+      } catch (e) {
+        finalLogs.push("❌ Không thể phân tích kết quả đầu ra của chương trình.");
+        finalLogs.push(stdout);
+        return { passedCount: 0, totalCount: 5, results: [], logs: finalLogs };
+      }
+    };
+
+    // 2. Try Piston API first
+    try {
+      logs.push("🌐 Đang sử dụng Piston API Sandbox để thực thi an toàn...");
+      const res = await fetch('https://emacsx.com/api/v2/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: 'python',
+          version: '3.10.0',
+          files: [{ content: fullCode }]
+        })
       });
-    });
+      if (!res.ok) throw new Error('Piston server returned ' + res.status);
+      const data = await res.json() as any;
+      if (data.run && typeof data.run.output === 'string') {
+        const stderr = data.run.stderr;
+        if (stderr) {
+          logs.push("❌ Runtime Error / Syntax Error (Piston):");
+          logs.push(stderr);
+          return { passedCount: 0, totalCount: 5, results: [], logs };
+        }
+        return parseOutput(data.run.output, logs);
+      }
+      throw new Error('Invalid Piston output');
+    } catch (apiErr) {
+      logs.push(`⚠️ Piston API lỗi (${apiErr}). Chuyển sang chạy Local Fallback...`);
+      // 3. Local fallback execution
+      return new Promise((resolve) => {
+        const tempDir = path.join(process.cwd(), 'temp_arena');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+        const tempFilePath = path.join(tempDir, `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.py`);
+        
+        fs.writeFileSync(tempFilePath, fullCode, 'utf8');
+        const cmd = `python "${tempFilePath}"`;
+        exec(cmd, { timeout: 3000 }, (error: any, stdout: string, stderr: string) => {
+          try { fs.unlinkSync(tempFilePath); } catch (e) {}
+          if (error && error.killed) {
+            logs.push("❌ Quá thời gian thực thi (Timeout 3s). Có thể có vòng lặp vô hạn!");
+            return resolve({ passedCount: 0, totalCount: 5, results: [], logs });
+          }
+          if (stderr) {
+            logs.push("❌ Runtime Error / Syntax Error (Local):");
+            logs.push(stderr);
+            return resolve({ passedCount: 0, totalCount: 5, results: [], logs });
+          }
+          resolve(parseOutput(stdout, logs));
+        });
+      });
+    }
   };
 
   const getArenaStateLocal = () => {
@@ -2454,6 +2453,11 @@ Context of Current Screen/Lesson: ${context || "Trang lý thuyết Quick Sort"}.
     
     socket.on('join_match', (matchId) => {
       socket.join(`match_${matchId}`);
+    });
+    
+    socket.on('arena_emote', (data) => {
+      // data: { matchId, emote, senderId }
+      socket.to(`match_${data.matchId}`).emit('arena_emote', data);
     });
     
     socket.on('disconnect', () => {
