@@ -239,14 +239,15 @@ class Solution:
     
     // Listen for instant websocket updates from server
     const socket = io();
-    socket.on('arena_state_updated', () => {
+    const handleUpdate = () => {
       if (alive) fetchOnline();
-    });
+    };
+    socket.on('arena_state_updated', handleUpdate);
 
     return () => { 
       alive = false; 
       clearInterval(interval); 
-      socket.disconnect();
+      socket.off('arena_state_updated', handleUpdate);
     };
   }, [queueState, roomCode]);
 
@@ -334,25 +335,28 @@ class Solution:
     socketRef.current = socket;
     socket.emit('join_match', matchId);
     
-    socket.on('arena_state_updated', () => {
+    const handleStateUpdate = () => {
       if (alive) poll();
-    });
+    };
+    socket.on('arena_state_updated', handleStateUpdate);
 
-    socket.on('arena_emote', (data: any) => {
+    const handleEmote = (data: any) => {
       if (data.senderId !== currentUserId) {
         // playAudioCue('receive' as any);
         setFloatingEmotes(prev => [...prev, { id: Date.now() + Math.random(), emoji: data.emote, isSender: false }]);
       }
-    });
+    };
+    socket.on('arena_emote', handleEmote);
 
-    socket.on('arena_attack', (data: any) => {
+    const handleAttack = (data: any) => {
       if (data.senderId !== currentUserId) {
         setIncomingSabotage(data.type);
         setTimeout(() => {
           setIncomingSabotage(null);
         }, 7000);
       }
-    });
+    };
+    socket.on('arena_attack', handleAttack);
 
     return () => {
       alive = false;
@@ -457,7 +461,7 @@ class Solution:
 
       {queueState === 'lobby' && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-xl w-full flex flex-col gap-8 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 p-4 md:p-8 rounded-2xl max-w-[90vw] md:max-w-xl w-full flex flex-col gap-8 shadow-2xl">
             <div className="space-y-2">
               <h2 className="text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
                 <Swords className="w-8 h-8 text-indigo-500" /> Sảnh Chờ Đấu Trường
@@ -709,8 +713,8 @@ class Solution:
         </div>
 
         {/* Center column - Editor */}
-        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-hidden flex flex-col border-r border-[#1a1f2c] bg-[#090b0e]">
-          <div className="bg-[#05070a] px-4 py-2.5 border-b border-[#1a1f2c] flex items-center justify-between">
+        <div className="lg:col-span-6 min-w-0 min-h-[50vh] lg:min-h-0 lg:h-full lg:overflow-hidden flex flex-col border-r border-[#1a1f2c] bg-[#090b0e]">
+          <div className="bg-[#05070a] px-4 py-2.5 border-b border-[#1a1f2c] flex flex-wrap gap-2 items-center justify-between">
             <span className="text-xs font-mono text-gray-400">solution.py (Python 3)</span>
             <div className="flex items-center space-x-2">
               <button 
@@ -888,7 +892,7 @@ class Solution:
 
       {/* Emote UI Toolbar (only visible when running) */}
       {queueState === 'running' && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex space-x-2 bg-slate-900/80 p-2 rounded-full border border-slate-700/50 backdrop-blur-sm z-40">
+        <div className="absolute bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 flex space-x-2 bg-slate-900/80 p-2 rounded-full border border-slate-700/50 backdrop-blur-sm z-40">
           {EMOTES.map(em => (
             <button
               key={em}

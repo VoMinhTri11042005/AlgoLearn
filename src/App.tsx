@@ -2261,7 +2261,7 @@ export default function App() {
       )}
 
       {/* Main viewport Container screens */}
-      <div className={`flex-1 w-full flex flex-col bg-slate-950 transition-all duration-300 ${!isFocusMode ? 'lg:pl-64 pt-16' : ''} ${isWorkspaceView ? 'lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
+      <div className={`flex-1 w-full flex flex-col bg-slate-950 transition-all duration-300 ${!isFocusMode ? 'lg:pl-64 pt-16 lg:pt-0' : ''} ${isWorkspaceView ? 'lg:overflow-hidden' : 'overflow-x-hidden overflow-y-auto pb-24 lg:pb-0'}`}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={

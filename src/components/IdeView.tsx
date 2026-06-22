@@ -357,9 +357,9 @@ setIsCompiling(false);
         </aside>
 
         {/* Center - Smart Code Editor */}
-        <main id="editor_playground" className="lg:col-span-5 min-w-0 lg:h-full lg:overflow-hidden flex flex-col border-r border-[#1a1f2c] bg-[#0a0d13]">
+        <main id="editor_playground" className="lg:col-span-5 min-w-0 min-h-[70vh] lg:min-h-0 lg:h-full lg:overflow-hidden flex flex-col border-r border-[#1a1f2c] bg-[#0a0d13]">
           {/* Top Bar with action triggers */}
-          <div className="flex items-center justify-between bg-[#080a0e] px-4 py-2.5 border-b border-[#1a1f2c]">
+          <div className="flex flex-wrap gap-2 items-center justify-between bg-[#080a0e] px-4 py-2.5 border-b border-[#1a1f2c]">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
               <span className="text-xs font-bold text-gray-300 font-mono">{activeFile}</span>
@@ -683,7 +683,7 @@ setIsCompiling(false);
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="absolute bottom-24 right-8 w-96 max-w-[90vw] bg-[#0d1117] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 h-[500px]"
+            className="absolute bottom-28 lg:bottom-24 right-4 lg:right-8 w-96 max-w-[90vw] bg-[#0d1117] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 h-[60vh] max-h-[500px]"
           >
             <div className="bg-[#161b22] px-4 py-3 flex justify-between items-center border-b border-indigo-500/20">
               <div className="flex items-center space-x-2">
@@ -750,7 +750,7 @@ setIsCompiling(false);
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsAiOpen(true)}
-          className="absolute bottom-8 right-8 w-14 h-14 bg-indigo-600 rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white z-40"
+          className="absolute bottom-20 lg:bottom-8 right-4 lg:right-8 w-14 h-14 bg-indigo-600 rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white z-40"
         >
           <Bot className="w-6 h-6" />
         </motion.button>
