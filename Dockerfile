@@ -13,7 +13,7 @@ COPY --from=builder /app/dist ./dist
 
 # Security: Run as non-root user
 RUN addgroup -S appgrp && adduser -S appuser -G appgrp
-RUN chown -R appuser:appgrp /app
+RUN touch db.json && chown appuser:appgrp /app db.json
 USER appuser
 
 ENV NODE_ENV=production
