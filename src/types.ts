@@ -16,7 +16,6 @@ export interface AppUser {
   streak: number;
   createdAt: string;
   isAdmin: boolean;
-  password?: string; // stored credentials for full-stack client-side authentication flow
 }
 
 export interface CodeFile {

@@ -102,7 +102,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
 
   const fetchPgStatus = async () => {
     try {
-      const res = await fetch('/api/postgres/status');
+      const res = await fetch('/api/postgres/status', { credentials: 'include' });
       const data = await res.json();
       setPgStatus({
         usePostgres: data.usePostgres,
@@ -123,6 +123,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
       const res = await fetch('/api/postgres/configure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ url: customPgUrl.trim() })
       });
       const data = await res.json();
@@ -144,7 +145,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
   const handleDisconnectPg = async () => {
     if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối PostgreSQL và trở về sử dụng tệp tin JSON cục bộ?")) return;
     try {
-      const res = await fetch('/api/postgres/disconnect', { method: 'POST' });
+      const res = await fetch('/api/postgres/disconnect', { method: 'POST', credentials: 'include' });
       const data = await res.json();
       if (res.ok && data.success) {
         triggerToast("Đã phục hồi hệ thống về Chế độ Lưu trữ cục bộ!");
@@ -157,7 +158,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
 
   const fetchSyllabus = async () => {
     try {
-      const res = await fetch('/api/syllabus');
+      const res = await fetch('/api/syllabus', { credentials: 'include' });
       const data = await res.json();
       if (Array.isArray(data)) {
         setLessons(data);
@@ -169,7 +170,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch('/api/users', { credentials: 'include' });
       const data = await res.json();
       if (Array.isArray(data)) {
         setMockUsers(data);
@@ -210,6 +211,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
       const res = await fetch('/api/syllabus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ syllabus: updatedLessons })
       });
       const data = await res.json();
@@ -324,6 +326,7 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
       const res = await fetch('/api/users/update-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ userId, role: newRole })
       });
       const data = await res.json();
@@ -341,7 +344,8 @@ export default function AdminView({ onNavigate, currentUserRole, onUpdateRole }:
     if (window.confirm('Bạn có chắc chắn muốn khôi phục dữ liệu hệ thống về trạng thái gốc không?')) {
       try {
         const res = await fetch('/api/syllabus/reset', {
-          method: 'POST'
+          method: 'POST',
+          credentials: 'include'
         });
         const data = await res.json();
         if (data.status === 'success') {

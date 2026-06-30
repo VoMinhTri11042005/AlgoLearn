@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let GIF: any;
 import { motion, AnimatePresence } from 'motion/react';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import HomeView from './components/HomeView';
@@ -313,7 +313,7 @@ export default function App() {
       } catch {}
     }
     if (newRole === 'user' && currentView === 'admin') {
-      setCurrentView('home');
+      navigate('/');
     }
   };
 
@@ -459,10 +459,10 @@ export default function App() {
       const role = currentUser.isAdmin ? 'admin' : 'user';
       setUserRole(role);
       localStorage.setItem('algolearn_user_role', role);
-      if (role === 'admin') {
-        setCurrentView('admin');
-      } else if (currentView === 'admin') {
-        setCurrentView('home');
+      // Security: Only redirect non-admins away from admin page
+      // Do NOT force admins to /admin on every state change
+      if (role !== 'admin' && currentView === 'admin') {
+        navigate('/');
       }
     }
   }, [currentUser]);
@@ -686,7 +686,7 @@ export default function App() {
     localStorage.setItem('algolearn_focus_mode', String(nextVal));
     if (nextVal) {
       if (currentView !== 'ide' && currentView !== 'arena') {
-        setCurrentView('ide');
+        navigate('/ide');
       }
     }
   };
@@ -2288,11 +2288,15 @@ export default function App() {
               />
             } />
             <Route path="/admin/*" element={
-              <AdminView 
-                onNavigate={handleNavigate} 
-                currentUserRole={userRole} 
-                onUpdateRole={handleUpdateRole} 
-              />
+              currentUser?.isAdmin ? (
+                <AdminView 
+                  onNavigate={handleNavigate} 
+                  currentUserRole={userRole} 
+                  onUpdateRole={handleUpdateRole} 
+                />
+              ) : (
+                <Navigate to="/" replace />
+              )
             } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -3401,7 +3405,7 @@ export default function App() {
             {/* View selectors to easily swap between IDE and Arena without leaving Focus Mode */}
             <div className="flex items-center space-x-1 bg-slate-950/80 p-0.5 rounded-lg border border-slate-850">
               <button
-                onClick={() => setCurrentView('ide')}
+                onClick={() => navigate('/ide')}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer ${
                   currentView === 'ide' 
                     ? 'bg-indigo-650 text-white shadow-sm' 
@@ -3412,7 +3416,7 @@ export default function App() {
                 IDE
               </button>
               <button
-                onClick={() => setCurrentView('arena')}
+                onClick={() => navigate('/arena')}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer ${
                   currentView === 'arena' 
                     ? 'bg-indigo-650 text-white shadow-sm' 

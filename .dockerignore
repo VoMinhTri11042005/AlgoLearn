@@ -2,6 +2,15 @@ node_modules
 dist
 .git
 .env
+.env.example
 .DS_Store
 *.log
-
+.agents
+.cursor
+README.md
+TODO.md
+todos.md
+build_out.txt
+tsc_out.txt
+db.json
+assets

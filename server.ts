@@ -8,7 +8,7 @@ import pg from "pg";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import bcrypt from "bcryptjs";
-import { exec } from "child_process";
+// Security: child_process.exec removed — no longer needed after RCE fix
 import { createServer } from "http";
 import { Server } from "socket.io";
 
@@ -876,10 +876,10 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
         const row = res.rows[0] as any;
         const stored: string = row.password;
 
+        // Security: Only allow bcrypt comparison, reject plaintext passwords
         const isBcrypt = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$');
-        const isMatch = isBcrypt
-          ? await bcrypt.compare(password, stored)
-          : stored === password;
+        if (!isBcrypt) return null; // Reject non-hashed passwords
+        const isMatch = await bcrypt.compare(password, stored);
 
 
 
@@ -908,14 +908,10 @@ async function loginDBUser(email: string, password: string): Promise<DBUser | nu
   if (!found) return null;
 
   const stored: string = found.password || '';
+  // Security: Only allow bcrypt comparison, reject plaintext passwords
   const looksBcrypt = stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$');
-
-  // MVP compatibility: db.json có thể chứa plaintext password.
-  // - nếu stored là bcrypt -> bcrypt.compare
-  // - nếu stored là plaintext -> so sánh thẳng
-  const isMatch = looksBcrypt
-    ? await bcrypt.compare(password, stored)
-    : stored === password;
+  if (!looksBcrypt) return null; // Reject non-hashed passwords
+  const isMatch = await bcrypt.compare(password, stored);
 
   return isMatch ? found : null;
 
@@ -984,15 +980,31 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
+
+  // Security: HTTP security headers
+  app.use((_req: any, res: any, next: any) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
 
   // Trust first proxy (Render, Heroku, etc.) so secure cookies work behind HTTPS reverse proxy
   app.set('trust proxy', 1);
 
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || 'dev_session_secret_change_me',
+      secret: (() => {
+        const s = process.env.SESSION_SECRET;
+        if (!s && process.env.NODE_ENV === 'production') {
+          console.error('FATAL: SESSION_SECRET environment variable is required in production.');
+          process.exit(1);
+        }
+        return s || 'dev_session_secret_' + require('crypto').randomBytes(16).toString('hex');
+      })(),
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -1015,6 +1027,32 @@ async function startServer() {
     if (req.session?.userId && req.session?.isAdmin) return next();
     return res.status(403).json({ error: 'Admin only' });
   };
+
+  // Security: Simple in-memory rate limiter for auth endpoints
+  const authAttempts = new Map<string, { count: number; resetTime: number }>();
+  const rateLimitAuth = (req: any, res: any, next: any) => {
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    const now = Date.now();
+    const record = authAttempts.get(ip);
+    if (record && now < record.resetTime) {
+      if (record.count >= 10) {
+        return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+      }
+      record.count++;
+    } else {
+      authAttempts.set(ip, { count: 1, resetTime: now + 60000 });
+    }
+    next();
+  };
+
+  // Security: Logout endpoint
+  app.post('/api/auth/logout', (req: any, res: any) => {
+    req.session.destroy((err: any) => {
+      if (err) return res.status(500).json({ error: 'Logout failed' });
+      res.clearCookie('connect.sid');
+      res.json({ success: true });
+    });
+  });
 
 
   // Connect PostgreSQL status on startup
@@ -1152,7 +1190,7 @@ async function startServer() {
   });
 
   // API Route - User Auth Register
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", rateLimitAuth, async (req, res) => {
     const { name, email, school, avatar, password } = req.body;
 
     if (!name || !email || !school || !password) {
@@ -1183,7 +1221,7 @@ async function startServer() {
   });
 
   // API Route - User Auth Login
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", rateLimitAuth, async (req, res) => {
     const { email, password } = req.body;
     // DEBUG (dev only): helps diagnose why local login fails
     const debug = process.env.NODE_ENV !== 'production';
@@ -1231,13 +1269,14 @@ async function startServer() {
 
   // API Route - Update profile / XP / Streak
   app.post("/api/auth/update-profile", requireAuth, async (req, res) => {
-    const { userId, xp, solved, streak } = req.body;
+    // Security: Only allow name, school, avatar updates — NOT xp/solved/streak
+    const { userId } = req.body;
 
     if (req.session?.userId !== userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const updatedUser = await updateDBProfile(userId, xp, solved, streak);
+    const updatedUser = await updateDBProfile(userId);
     if (updatedUser) {
       res.json({ user: publicUser(updatedUser), message: "Profile updated on server!" });
     } else {
@@ -1543,6 +1582,11 @@ try:
 except Exception as e:
     print(json.dumps({"error": str(e)}))
 `;
+
+    // Security: Limit code size to prevent DoS
+    if (code.length > 50000) {
+      return { passedCount: 0, totalCount: 0, results: [], logs: ['❌ Code vượt quá giới hạn 50KB'] };
+    }
 
     const fullCode = code + '\n' + harness;
     const logs: string[] = [
@@ -2381,7 +2425,7 @@ except Exception as e:
   });
 
   // API routes first
-  app.post("/api/gemini/chat", async (req, res) => {
+  app.post("/api/gemini/chat", requireAuth, async (req, res) => {
 
     // NOTE: arena MVP endpoints are injected above.
 
@@ -2462,7 +2506,10 @@ Context of Current Screen/Lesson: ${context || "Trang lý thuyết Quick Sort"}.
   
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
-    cors: { origin: '*' }
+    cors: {
+      origin: process.env.APP_URL || 'http://localhost:3000',
+      credentials: true
+    }
   });
   globalIo = io;
   

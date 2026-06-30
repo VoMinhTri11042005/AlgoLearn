@@ -423,7 +423,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
 
               <div className="text-center pt-2">
                 <p className="text-[10.5px] text-slate-500 leading-relaxed font-semibold font-sans">
-                  Tài khoản dùng thử (Admin & Học viên): <strong className="text-indigo-400 select-all">admin@algolearn.vn</strong> / <strong className="text-indigo-400 select-all">admin123</strong>
+                  Chưa có tài khoản? Nhấn "Tạo tài khoản mới" để đăng ký ngay.
                 </p>
               </div>
             </form>

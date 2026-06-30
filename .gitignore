@@ -9,3 +9,4 @@ coverage/
 temp_arena/
 tsc_out.txt
 build_out.txt
+db.json
